@@ -10,7 +10,6 @@ public:
     static const char about[];
     static const char * const exts[];
     static const char * const defaults[];
-    static const PreferencesWidget widgets[];
     static const PluginPreferences prefs;
 
     static constexpr PluginInfo info = {
@@ -21,16 +20,17 @@ public:
     };
 
     constexpr VgmPlugin () : InputPlugin (info, InputInfo (FlagSubtunes)
+                                          .with_priority(1)
                                           .with_exts (exts)) {}
 
-    bool init();
-    void cleanup();
+    bool init() override;
+    void cleanup() override;
 
-    bool is_our_file (const char *filename, VFSFile & file)
+    bool is_our_file (const char *filename, VFSFile & file) override
         { return false;  }
 
-    bool read_tag(const char *filename, VFSFile & file, Tuple & tuple, Index<char> * image);
-    bool play(const char *filename, VFSFile & file);
+    bool read_tag(const char *filename, VFSFile & file, Tuple & tuple, Index<char> * image) override;
+    bool play(const char *filename, VFSFile & file) override;
 };
 
 #endif // VGM_PLUGIN_H_

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.12)
 
 project(audacious-vgm)
 
-include(GenerateExportHeader)
+include(FindPkgConfig)
 
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
@@ -13,11 +13,26 @@ set(BUILD_LIBPLAYER ON CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_PLAYER OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(BUILD_VGM2WAV ON CACHE BOOL "" FORCE)
 set(USE_SANITIZERS ON CACHE BOOL "")
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(libvgm)
 
-add_library(vgm SHARED src/plugin.cc)
-generate_export_header(vgm)
+find_package(Qt5 COMPONENTS Widgets REQUIRED)
+pkg_search_module(audacious REQUIRED IMPORTED_TARGET audacious>=3.9)
 
-target_link_libraries(vgm vgm-emu_obj vgm-player_obj vgm-utils_obj)
+add_library(vgm MODULE src/plugin.cc src/configure.cc src/driver.cc src/vfsloader.cc src/gzfile.cc src/prefs.cpp
+        src/libvgm-dev-meta.cpp)
+
+set_target_properties(vgm PROPERTIES PREFIX "")
+
+add_executable(tester src/tester.cpp src/libvgm-dev-meta.cpp)
+
+target_include_directories(tester PRIVATE libvgm)
+#target_link_libraries(tester)
+
+target_link_libraries(vgm vgm-emu_obj vgm-player_obj vgm-utils_obj PkgConfig::audacious Qt5::Widgets audqt)
