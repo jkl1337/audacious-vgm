@@ -25,14 +25,15 @@ add_subdirectory(libvgm)
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 pkg_search_module(audacious REQUIRED IMPORTED_TARGET audacious>=3.9)
 
-add_library(vgm MODULE src/plugin.cc src/configure.cc src/driver.cc src/vfsloader.cc src/gzfile.cc src/prefs.cpp
-        src/libvgm-dev-meta.cpp)
+add_library(vgm MODULE src/vfsloader.cc src/gzfile.cc
+        src/libvgm-dev-meta.cpp src/vgm.cc src/vgm.h src/internal.cc
+        src/internal.h src/player.cc
+        src/config.h src/tags.cc src/tags.h src/config.cc)
 
 set_target_properties(vgm PROPERTIES PREFIX "")
 
 add_executable(tester src/tester.cpp src/libvgm-dev-meta.cpp)
 
 target_include_directories(tester PRIVATE libvgm)
-#target_link_libraries(tester)
 
 target_link_libraries(vgm vgm-emu_obj vgm-player_obj vgm-utils_obj PkgConfig::audacious Qt5::Widgets audqt)

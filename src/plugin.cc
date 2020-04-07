@@ -2,17 +2,6 @@
 #include "plugin.h"
 #include "driver.h"
 
-LIBAUDCORE_PUBLIC VgmPlugin aud_plugin_instance;
-
-const char VgmPlugin::about[] =
-        N_("VGM music decoder based on libvgm 1.0\n"
-           "Supported formats: vgm\n\n"
-           "Audacious plugin by:\n"
-           "John Luebs <jkl@johnluebs.com>\n");
-
-const char *const VgmPlugin::exts[] = {
-        "vgm", "vgz", nullptr
-};
 
 static ComboItem chip_select_combo[] = {
         ComboItem(N_("Chip #1"), 1),
@@ -203,26 +192,8 @@ static void *populate() {
     return new ConfigurationWidget();
 }
 
-static const PreferencesWidget vgm_widgets_general[] = {
-        WidgetLabel(N_("<b>Playback</b>")),
-        WidgetSpin(N_("Default number of loops:"),
-                   WidgetInt(audcfg.num_loops),
-                   {1, 7200, 1, N_("loops")}),
-        WidgetSpin(N_("Fade time:"),
-                   WidgetFloat(audcfg.fade_length),
-                   {0, 7200, 1, N_("seconds")}),
-        WidgetCustomQt(populate, WIDGET_CHILD),
-};
 
-static const NotebookTab vgm_notebook_tabs[] = {
-        {N_("General"),       {vgm_widgets_general}},
-        {N_("Chip Options"),  {vgm_widgets_chip_opts}},
-        {N_("Other Options"), {}}
-};
 
-static const PreferencesWidget widgets[] = {
-        WidgetNotebook({{vgm_notebook_tabs}})
-};
 
-const PluginPreferences VgmPlugin::prefs = {widgets};
+
 

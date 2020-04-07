@@ -174,5 +174,6 @@ const DeviceConfig lib_devices[] = {
     {DEVID_GA20, "Irem GA20", s4ch_cg, mame_cs, ga20_opts}};
 
 const size_t num_devices = sizeof(lib_devices) / sizeof(lib_devices[0]);
+const ArrayRef<DeviceConfig> lib_devices_a(lib_devices, num_devices);
 
 }  // namespace vgm

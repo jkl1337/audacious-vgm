@@ -92,6 +92,12 @@ struct LinkSpec {
   constexpr bool valid() const { return id != CoreInvalid; }
 };
 
+struct DeviceConfig;
+
+extern const DeviceConfig lib_devices[];
+extern const size_t num_devices;
+extern const ArrayRef<DeviceConfig> lib_devices_a;
+
 struct DeviceConfig {
   uint_least32_t id = CoreInvalid;
   const char label[12] = {};
@@ -105,10 +111,38 @@ struct DeviceConfig {
 
   constexpr bool has_linked() const { return linked.valid(); }
   constexpr bool valid() const { return id != CoreInvalid; }
+
+  bool has_panning() const {
+    for (const auto &core : cores) {
+      if (core.panning) return true;
+    }
+    return false;
+  }
+
+  int num_channels() const {
+    int count = 0;
+    for (const auto &c : channels) {
+      count += c.serial;
+      count += c.named.len;
+    }
+    return count;
+  }
+
+  int num_channels_all() const {
+    int count = num_channels();
+    if (has_linked()) {
+      for (const auto &d : lib_devices_a) {
+        if (d.id == linked.id) {
+          count += d.num_channels();
+          break;
+        }
+      }
+    }
+    return count;
+  }
+
 };
 
-extern const DeviceConfig lib_devices[];
-extern const size_t num_devices;
 }  // namespace vgm
 
 #endif  // VGM_DEV_META_H_
