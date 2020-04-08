@@ -4,8 +4,11 @@
 #include <libaudcore/i18n.h>
 #include <libaudcore/plugin.h>
 
+#include "config.h"
+
 namespace audvgm {
 
+static void ui_realtime_config_update();
 
 class Plugin : public InputPlugin {
  public:
@@ -28,6 +31,15 @@ class Plugin : public InputPlugin {
   bool read_tag(const char *filename, VFSFile &file, Tuple &tuple,
                 Index<char> *image) override;
   bool play(const char *filename, VFSFile &file) override;
+
+  struct RealTimeConfig {
+    float gain = 0.0;
+    bool surround = false;
+  };
+
+ private:
+  static std::atomic<RealTimeConfig> realtime_config;
+  friend void ui_realtime_config_update();
 };
 
 }

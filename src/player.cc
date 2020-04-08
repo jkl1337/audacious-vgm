@@ -50,8 +50,7 @@ author: %s
 
     printf(R"EOT(srcSR: %u dstSR: %u linkDevCount: %u
 )EOT",
-           base_dev->resmpl.smpRateSrc, base_dev->resmpl.smpRateDst,
-           dev_info->linkDevCount);
+           base_dev->resmpl.smpRateSrc, base_dev->resmpl.smpRateDst, dev_info->linkDevCount);
     if (dev_info->linkDevCount) {
       printf("link ID: %d\n", dev_info->linkDevs[0].devID);
     }
@@ -72,66 +71,74 @@ SR: %u
   }
 }
 
-unsigned long get_total_frames(const PlayerBase &player, unsigned sample_rate) {
-  UINT32 ticks = player.GetTotalPlayTicks(aud_get_int(VGM_CFGID, cfg::LOOP_COUNT));
-  UINT32 total_samples = player.Tick2Sample(ticks);
+inline uint_fast32_t get_total_frames(const PlayerBase &player, uint_fast32_t sample_rate,
+                                      uint_fast32_t loop_count, uint_fast32_t fade_length) {
+  uint_fast64_t total_samples = player.Tick2Sample(player.GetTotalPlayTicks(loop_count));
 
   if (player.GetLoopTicks()) {
-    total_samples +=
-        int64_t(aud_get_int(VGM_CFGID, cfg::FADE_LENGTH)) * sample_rate / 1000;
+    total_samples += uint_fast64_t{fade_length} * sample_rate / 1000;
   }
-
-  return total_samples;
+  return std::min(total_samples, uint_fast64_t{UINT32_MAX});
 }
 
-constexpr long kSampMin = -(1 << 24) / 2;
-constexpr long kSampMax = (1 << 24) / 2 - 1;
+struct Frame {
+  int_fast32_t l;
+  int_fast32_t r;
+};
 
-void pack_frames(int16_t *buf, unsigned int frame_count, const WAVE_32BS *data) {
-  while (frame_count--) {
-    WAVE_32BS s = *data++;
+inline void pack_frame(int32_t *out, const Frame f) {
+  out[0] = f.l;
+  out[1] = f.r;
+}
 
-    if (s.L < kSampMin)
-      s.L = kSampMin;
-    else if (s.L > kSampMax)
-      s.L = kSampMax;
-
-    if (s.R < kSampMin)
-      s.R = kSampMin;
-    else if (s.R > kSampMax)
-      s.R = kSampMax;
-
-    *buf++ = static_cast<unsigned>(s.L) >> 8;
-    *buf++ = static_cast<unsigned>(s.R) >> 8;
-  }
+inline void pack_frame(int16_t *out, const Frame f) {
+  out[0] = f.l / 256;
+  out[1] = f.r / 256;
 }
 
 /* apply a fade to a buffer of frames */
-/* frames_rem - remaining total frames, includes fade frames */
+/* frames_remaining - remaining total frames, includes fade frames */
 /* frames_fade - total number of fade samples */
 /* frame_count - number of frames being rendered right now */
-void fade_frames(unsigned int frames_rem, unsigned int frames_fade,
-                 unsigned int frame_count, WAVE_32BS *data) {
-  unsigned int i = 0;
-  unsigned int f = frames_fade;
-  UINT64 fade_vol;
+template <typename T, typename PosT = uint_fast32_t>
+void process_frames(T *out, PosT frames_remaining, PosT frames_fade, int frame_count,
+                    WAVE_32BS *data, int gain_256, bool surround) {
+  constexpr long kSampMin = -(1 << 24) / 2;
+  constexpr long kSampMax = (1 << 24) / 2 - 1;
 
-  if (frames_rem - frame_count > frames_fade) return;
-  if (frames_rem > frames_fade) {
-    i = frames_rem - frames_fade;
-    f += i;
+  int i = 0;
+  int fade_start = frame_count;
+
+  const int_fast64_t gains[2]{gain_256, surround ? -gain_256 : gain_256};
+  int_fast64_t s[2];
+
+  if (frames_remaining > frames_fade) {
+    PosT f = frames_remaining - frames_fade;
+    if (f < frame_count) {
+      fade_start = f;
+    }
   } else {
-    f = frames_rem;
+    fade_start = 0;
   }
-  while (i < frame_count) {
-    fade_vol = (UINT64)((f - i)) * (1 << 16);
-    fade_vol /= frames_fade;
-    fade_vol *= fade_vol;
-    fade_vol >>= 16;
 
-    // FIXME: This conversion is suspect and also need to take into account minimum length
-    data[i].L = (INT32)(((UINT64)data[i].L * fade_vol) >> 16);
-    data[i].R = (INT32)(((UINT64)data[i].R * fade_vol) >> 16);
+  while (i < frame_count) {
+    s[0] = data[i].L;
+    s[1] = data[i].R;
+
+    if (i >= fade_start) {
+      uint_fast64_t fade_volume = uint_fast64_t{frames_remaining - i} << 24;
+      fade_volume /= frames_fade;
+      fade_volume *= fade_volume;
+      fade_volume >>= 24;
+
+      s[0] = ((s[0] * static_cast<int_fast64_t>(fade_volume)) / (1 << 24));
+      s[1] = ((s[1] * static_cast<int_fast64_t>(fade_volume)) / (1 << 24));
+    }
+    s[0] = (s[0] * gains[0]) / 256;
+    s[1] = (s[1] * gains[1]) / 256;
+    pack_frame(out, Frame{std::clamp<int_fast64_t>(s[0], kSampMin, kSampMax),
+                          std::clamp<int_fast64_t>(s[1], kSampMin, kSampMax)});
+    out += 2;
     i++;
   }
 }
@@ -139,44 +146,48 @@ void fade_frames(unsigned int frames_rem, unsigned int frames_fade,
 }  // namespace
 
 bool Plugin::play(const char *, VFSFile &file) {
-  Tuple tuple = get_playback_tuple();
+  static const int buffer_n_frames = 4096;
 
-  int sample_rate = aud_get_int(VGM_CFGID, cfg::SAMPLE_RATE);
+  uint_fast32_t sample_rate =
+      std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kSampleRate), 0, UINT32_MAX);
+  uint_fast32_t loop_count =
+      std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kLoopCount), 0, UINT32_MAX);
+  uint_fast32_t fade_length =
+      std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kFadeLength), 0, UINT32_MAX);
 
   FileHandler fh(file);
   if (!fh.load(sample_rate)) return false;
 
   PlayerBase &driver = *fh.player();
 
-  TagHandler::get_tags(driver, tuple);
-  set_playback_tuple(tuple.ref());
-
   VGMPlayer *vgm_driver = fh.vgm_player();
   if (vgm_driver) {
     VGM_PLAY_OPTIONS play_opts = {
-        .playbackHz = static_cast<UINT32>(aud_get_int(VGM_CFGID, "playback_rate")),
-        .hardStopOld = aud_get_bool(VGM_CFGID, "hard_stop_old")};
+        .playbackHz = static_cast<UINT32>(std::min(aud_get_int(VGM_CFGID, cfg::kPlaybackRate), 0)),
+        .hardStopOld = aud_get_bool(VGM_CFGID, cfg::kHardStopOld)};
     vgm_driver->SetPlayerOptions(play_opts);
   }
+
+  Tuple tuple = get_playback_tuple();
+  TagHandler::get_tags(driver, tuple);
+  set_playback_tuple(tuple.ref());
 
   driver.SetSampleRate(sample_rate);
   driver.Start();
 
   dump_info(driver);
 
-  open_audio(FMT_S16_LE, sample_rate, 2);
+  std::vector<WAVE_32BS> render_buffer(buffer_n_frames);
+  std::vector<int16_t> output_buffer(buffer_n_frames * 2);
 
-  unsigned long total_frames = get_total_frames(driver, sample_rate);
-  unsigned long frame_pos = 0;
-  auto frames_fade = 0;
+  uint_fast32_t total_frames = get_total_frames(driver, sample_rate, loop_count, fade_length);
+  uint_fast32_t frame_position = 0;
+  uint_fast32_t frames_fade = 0;
+
   if (driver.GetLoopTicks()) {
-    frames_fade = int64_t(aud_get_int(VGM_CFGID, cfg::FADE_LENGTH)) * sample_rate / 1000;
+    frames_fade =
+        std::min(uint_fast64_t{fade_length} * sample_rate / 1000, uint_fast64_t{UINT32_MAX});
   }
-  
-  const int buf_size = 4096;
-
-  std::vector<WAVE_32BS> buf(buf_size);
-  std::vector<int16_t> buf_packed(buf_size * 2);
 
 #if 0
   std::array<uint_least32_t, 2> last_mute_mask = {audvgm_playback_settings.mute_masks[0],
@@ -187,13 +198,14 @@ bool Plugin::play(const char *, VFSFile &file) {
   }
 #endif
 
+  open_audio(FMT_S16_NE, sample_rate, 2);
+
   while (!check_stop()) {
     int seek_value = check_seek();
     if (seek_value >= 0) {
-      unsigned long new_pos = int64_t(seek_value) * sample_rate / 1000;
-
+      uint32_t new_pos = static_cast<uint_fast64_t>(seek_value) * sample_rate / 1000;
       driver.Seek(PLAYPOS_SAMPLE, new_pos);
-      frame_pos = new_pos;
+      frame_position = new_pos;
     }
 
 #if 0
@@ -207,21 +219,25 @@ bool Plugin::play(const char *, VFSFile &file) {
     }
 #endif
 
-    std::memset(buf.data(), 0, buf.size() * sizeof buf[0]);
+    // RealTimeConfig current_config = realtime_config.load();
+    int gain_256 = std::clamp<int>(aud_get_double(VGM_CFGID, cfg::kGain) * 256.0, 0, 1024);
+    bool surround = aud_get_bool(VGM_CFGID, cfg::kSurround);
 
-    unsigned long frames_remaining = total_frames - frame_pos;
+    uint_fast32_t frames_remaining = total_frames - frame_position;
+    int n_frames = std::min(render_buffer.size(), frames_remaining);
 
-    int n_frames = buf.size() > frames_remaining ? static_cast<int>(frames_remaining)
-                                                 : static_cast<int>(buf.size());
-    n_frames = driver.Render(n_frames, buf.data());
+    std::memset(render_buffer.data(), 0, render_buffer.size() * sizeof render_buffer[0]);
+    n_frames = driver.Render(n_frames, render_buffer.data());
 
-    fade_frames(total_frames - frame_pos, frames_fade, n_frames, buf.data());
-    pack_frames(buf_packed.data(), n_frames, buf.data());
-    write_audio(buf_packed.data(), n_frames * 4);
+    process_frames(output_buffer.data(), total_frames - frame_position, frames_fade, n_frames,
+                   render_buffer.data(), gain_256, surround);
 
-    frame_pos += n_frames;
+    write_audio(output_buffer.data(),
+                n_frames * 2 * int{sizeof(decltype(output_buffer)::value_type)});
 
-    if (frame_pos >= total_frames) break;
+    frame_position += n_frames;
+
+    if (frame_position >= total_frames) break;
   }
   return true;
 }
