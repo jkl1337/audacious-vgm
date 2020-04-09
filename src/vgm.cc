@@ -10,6 +10,7 @@
 #include <libaudqt/libaudqt.h>
 
 #include "config.h"
+#include "prefs.h"
 
 namespace audvgm {
 
@@ -156,8 +157,13 @@ const PreferencesWidget general_widgets_columns[] = {
 
 const PreferencesWidget general_widgets[] = {
     WidgetBox({{general_widgets_columns}, true})};
+
+const PreferencesWidget chip_widgets[] = {
+    WidgetCustomQt(populate_chip_prefs)
+};
+
 const NotebookTab notebook_tabs[] = {{N_("General"), {general_widgets}},
-                                            {N_("Other Options"), {}}};
+                                            {N_("Other Options"), {chip_widgets}}};
 
 const PreferencesWidget widgets[] = {WidgetNotebook({{notebook_tabs}})};
 

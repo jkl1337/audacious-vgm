@@ -26,6 +26,8 @@ struct ArrayRef {
 
   constexpr ArrayRef(const T *data, int len) : data(data), len(len) {}
 
+  constexpr const T& operator[](int pos) const { return data[pos]; }
+
   const T *begin() const { return data; }
   const T *end() const { return data + len; }
 };

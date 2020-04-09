@@ -96,36 +96,34 @@ inline void pack_frame(int16_t *out, const Frame f) {
   out[1] = f.r / 256;
 }
 
-/* apply a fade to a buffer of frames */
-/* frames_remaining - remaining total frames, includes fade frames */
-/* frames_fade - total number of fade samples */
-/* frame_count - number of frames being rendered right now */
-template <typename T, typename PosT = uint_fast32_t>
-void process_frames(T *out, PosT frames_remaining, PosT frames_fade, int frame_count,
+/**
+ * Applies postprocessing of rendered audio, including gain, "surround" sound and
+ * fading. Packs into buffer of type BufT.
+ */
+template <typename BufT, typename CntT, typename PosT = uint_fast32_t>
+void process_frames(BufT *out, PosT frames_remaining, PosT frames_fade, CntT frame_count,
                     WAVE_32BS *data, int gain_256, bool surround) {
   constexpr long kSampMin = -(1 << 24) / 2;
   constexpr long kSampMax = (1 << 24) / 2 - 1;
 
-  int i = 0;
-  int fade_start = frame_count;
-
   const int_fast64_t gains[2]{gain_256, surround ? -gain_256 : gain_256};
   int_fast64_t s[2];
 
+  CntT fade_start_i = frame_count;
   if (frames_remaining > frames_fade) {
     PosT f = frames_remaining - frames_fade;
     if (f < frame_count) {
-      fade_start = f;
+      fade_start_i = f;
     }
   } else {
-    fade_start = 0;
+    fade_start_i = 0;
   }
 
-  while (i < frame_count) {
+  for (CntT i = 0; i < frame_count; ++i) {
     s[0] = data[i].L;
     s[1] = data[i].R;
 
-    if (i >= fade_start) {
+    if (i >= fade_start_i) {
       uint_fast64_t fade_volume = uint_fast64_t{frames_remaining - i} << 24;
       fade_volume /= frames_fade;
       fade_volume *= fade_volume;
@@ -139,7 +137,6 @@ void process_frames(T *out, PosT frames_remaining, PosT frames_fade, int frame_c
     pack_frame(out, Frame{std::clamp<int_fast64_t>(s[0], kSampMin, kSampMax),
                           std::clamp<int_fast64_t>(s[1], kSampMin, kSampMax)});
     out += 2;
-    i++;
   }
 }
 
