@@ -16,17 +16,10 @@ namespace audvgm {
 
 void vgm_configure();
 
-static Plugin::RealTimeConfig ui_realtime_config;
-std::atomic<Plugin::RealTimeConfig> Plugin::realtime_config;
-
 bool Plugin::init() {
   set_defaults();
 
-  ui_realtime_config = {
-      .gain = static_cast<float>(aud_get_double(VGM_CFGID, cfg::kGain)),
-      .surround = aud_get_bool(VGM_CFGID, cfg::kSurround)
-  };
-  realtime_config.store(ui_realtime_config);
+  playback_status_ = new PlaybackStatus;
 
   aud_plugin_menu_add(AudMenuID::Main, audvgm::vgm_configure, _("VGM Configure..."),
                       nullptr);
@@ -34,7 +27,9 @@ bool Plugin::init() {
   return true;
 }
 
-void Plugin::cleanup() {}
+void Plugin::cleanup() {
+  delete playback_status_;
+}
 
 const char Plugin::about[] =
     N_("VGM music decoder based on libvgm 1.0\n"
@@ -44,11 +39,7 @@ const char Plugin::about[] =
 
 const char *const Plugin::exts[] = {"vgm", "vgz", nullptr};
 
-
-static void ui_realtime_config_update() {
-  Plugin::realtime_config.store(ui_realtime_config);
-
-}
+static void *populate_chip_prefs();
 
 namespace {
 
@@ -158,8 +149,9 @@ const PreferencesWidget general_widgets_columns[] = {
 const PreferencesWidget general_widgets[] = {
     WidgetBox({{general_widgets_columns}, true})};
 
+
 const PreferencesWidget chip_widgets[] = {
-    WidgetCustomQt(populate_chip_prefs)
+    WidgetCustomQt(audvgm::populate_chip_prefs)
 };
 
 const NotebookTab notebook_tabs[] = {{N_("General"), {general_widgets}},
@@ -174,6 +166,11 @@ const PluginPreferences Plugin::prefs = {widgets};
 }  // namespace audvgm
 
 LIBAUDCORE_PUBLIC audvgm::Plugin aud_plugin_instance;
+
+static void *audvgm::populate_chip_prefs() {
+  auto plugin = static_cast<Plugin*>(&aud_plugin_instance);
+  return construct_chip_control_widget(plugin->playback_status());
+}
 
 void audvgm::vgm_configure() {
   audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance));

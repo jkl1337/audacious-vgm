@@ -1,18 +1,24 @@
+#include "prefs.h"
+
+#include <libaudcore/hook.h>
 #include <libaudcore/i18n.h>
 #include <libaudqt/libaudqt.h>
 
 #include <QtCore/QAbstractListModel>
 #include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QStyledItemDelegate>
 #include <bitset>
 
+#include "comm.h"
 #include "libvgm-dev-meta.h"
 
 namespace audvgm {
 
 constexpr int kNumChips = 2;
+constexpr int kMaxNumDevices = 41;
 
 class DeviceListModel;
 
@@ -32,13 +38,11 @@ class DeviceListModel : public QAbstractListModel {
     bool setData(const QModelIndex &index, const QVariant &value, int role) override;
 
    private:
-    friend DeviceListModel;
     DeviceListModel &device_list_;
   };
 
  public:
-  explicit DeviceListModel(QObject *parent = nullptr)
-      : QAbstractListModel(parent), chip_list_model_(*this), state_(vgm::lib_devices_a.len) {}
+  explicit DeviceListModel(PlaybackStatus &playback_status, QObject *parent = nullptr);
 
   QVariant data(const QModelIndex &index, int role) const override;
   bool setData(const QModelIndex &index, const QVariant &value, int role) override;
@@ -71,9 +75,31 @@ class DeviceListModel : public QAbstractListModel {
 
  private:
   ChipListModel chip_list_model_;
+  std::bitset<kMaxNumDevices> running_devices_;
   std::vector<ChipSwitch> state_;
   int current_device_ = 0;
 };
+
+DeviceListModel::DeviceListModel(PlaybackStatus &playback_status, QObject *parent)
+    : QAbstractListModel(parent), chip_list_model_(*this), state_(vgm::lib_devices.len) {
+  auto playback_status_hook = [](const PlaybackStatus &ps, void *ctx) {
+    auto *self = static_cast<DeviceListModel *>(ctx);
+    self->running_devices_.reset();
+
+    for (const auto &a : ps.device_info()) {
+      for (int i = 0; i < vgm::lib_devices.len; ++i) {
+        if (vgm::lib_devices[i].id == a.type) {
+          self->running_devices_[i] = true;
+          auto mi = self->createIndex(i, 0);
+          self->dataChanged(mi, mi, QVector<int>({RunningDeviceRole}));
+        }
+      }
+    }
+  };
+  playback_status.hook(playback_status_hook, this);
+  connect(this, &QObject::destroyed, this,
+          [&]() { playback_status.unhook(playback_status_hook, this); });
+}
 
 bool DeviceListModel::set_chip_state(int i, DeviceListModel::ChipSwitch enable,
                                      DeviceListModel::ChipSwitch disable) {
@@ -119,7 +145,7 @@ QVariant DeviceListModel::data(const QModelIndex &index, int role) const {
   int row = index.row();
   if (row < 0 || row >= num_devices()) return QVariant();
 
-  auto &dev = vgm::lib_devices_a[row];
+  auto &dev = vgm::lib_devices[row];
 
   switch (role) {
     case Qt::DisplayRole:
@@ -137,7 +163,7 @@ QVariant DeviceListModel::data(const QModelIndex &index, int role) const {
       return QVariant(c);
     }
     case DeviceListModel::RunningDeviceRole: {
-      return QVariant((row % 3) == 0);
+      return QVariant(running_devices_.test(row));
     }
     default:
       break;
@@ -283,17 +309,18 @@ class DeviceListView : public QListView {
 
 class ChipControlWidget : public QWidget {
  public:
-  static ChipControlWidget* construct(QWidget *parent = nullptr);
+  static ChipControlWidget *construct(PlaybackStatus &playback_status, QWidget *parent = nullptr);
 
  private:
-  explicit ChipControlWidget() = default;
+  explicit ChipControlWidget(PlaybackStatus &playback_status) : device_list_(playback_status) {}
 
   DeviceListModel device_list_;
 };
 
-ChipControlWidget *ChipControlWidget::construct(QWidget *parent) {
-  auto self = std::unique_ptr<ChipControlWidget>(new ChipControlWidget);
-  auto layout = audqt::make_hbox(self.get());
+ChipControlWidget *ChipControlWidget::construct(PlaybackStatus &playback_status, QWidget *parent) {
+  auto ptr = std::unique_ptr<ChipControlWidget>(new ChipControlWidget(playback_status));
+  auto self = ptr.get();
+  auto layout = audqt::make_hbox(self);
 
   auto vbox = new QVBoxLayout;
   layout->addLayout(vbox);
@@ -312,6 +339,9 @@ ChipControlWidget *ChipControlWidget::construct(QWidget *parent) {
   auto chip_list_view = new ChipListView();
   layout->addWidget(chip_list_view);
 
+  auto info_label = new QLabel("Potter");
+  layout->addWidget(info_label, 1);
+
   device_list_view->set_device_list_model(&self->device_list_);
 
   auto clv = chip_list_view;
@@ -320,21 +350,22 @@ ChipControlWidget *ChipControlWidget::construct(QWidget *parent) {
   clv->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   clv->setFixedSize(
       clv->sizeHintForColumn(0) + 2 * (clv->frameWidth() + clv->spacing()) +
-      clv->style()->pixelMetric(QStyle::PM_ScrollBarExtent),
+          clv->style()->pixelMetric(QStyle::PM_ScrollBarExtent),
       clv->sizeHintForRow(0) * (kNumChips * 256) / 192 + 2 * (clv->frameWidth() + clv->spacing()));
 
-  QObject::connect(button_dev_ena, &QPushButton::clicked,
+  QObject::connect(button_dev_ena, &QPushButton::clicked, device_list_view,
                    [device_list_view]() { device_list_view->enable_selected_devices(); });
 
-  QObject::connect(button_dev_dis, &QPushButton::clicked,
+  QObject::connect(button_dev_dis, &QPushButton::clicked, device_list_view,
                    [device_list_view]() { device_list_view->disable_selected_devices(); });
 
-  auto obj = self.release();
-  if (parent)
-    obj->setParent(parent);
-  return obj;
+  auto ret = ptr.release();
+  if (parent) ret->setParent(parent);
+  return ret;
 }
 
-void *populate_chip_prefs() { return ChipControlWidget::construct(); }
+void *construct_chip_control_widget(PlaybackStatus &playback_status) {
+  return ChipControlWidget::construct(playback_status);
+}
 
 }  // namespace audvgm

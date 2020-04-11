@@ -15,7 +15,7 @@ int main() {
       [](char c) { return std::tolower(c); });
 
   for (int i = 0; i < num_devices; ++i) {
-    const DeviceConfig &d = lib_devices[i];
+    const DeviceConfig &d = lib_devices_p[i];
     std::printf("name: %s, num_cg: %zu num_core: %zu ", d.label, d.channels.len,
                 d.cores.len);
     std::printf("num-opts: %zu\n", d.options.len);

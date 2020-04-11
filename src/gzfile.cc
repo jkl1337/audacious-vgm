@@ -60,7 +60,7 @@ int64_t GzFile::read(void *buffer, uint64_t n_bytes)
     if (!n_bytes)
         return 0;
 
-    zbuf_.next_out = reinterpret_cast<Bytef*>(buffer);
+    zbuf_.next_out = static_cast<Bytef*>(buffer);
     zbuf_.avail_out = n_bytes;
 
     while (true) {

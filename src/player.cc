@@ -25,7 +25,7 @@ namespace audvgm {
 namespace {
 
 void dump_info(PlayerBase &player) {
-  auto &vgm_player = reinterpret_cast<VGMPlayer &>(player);
+  auto &vgm_player = static_cast<VGMPlayer &>(player);
 
   PLR_SONG_INFO song_info = {};
   player.GetSongInfo(song_info);
@@ -172,6 +172,12 @@ bool Plugin::play(const char *, VFSFile &file) {
   driver.SetSampleRate(sample_rate);
   driver.Start();
 
+  // GetSongDeviceInfo has distinct function depending on whether driver is "PLAYING", ie after
+  // start has been called.
+  std::vector<PLR_DEV_INFO> dev_info_list;
+  driver.GetSongDeviceInfo(dev_info_list);
+  playback_status_->set_device_info(std::move(dev_info_list));
+
   dump_info(driver);
 
   std::vector<WAVE_32BS> render_buffer(buffer_n_frames);
@@ -216,7 +222,6 @@ bool Plugin::play(const char *, VFSFile &file) {
     }
 #endif
 
-    // RealTimeConfig current_config = realtime_config.load();
     int gain_256 = std::clamp<int>(aud_get_double(VGM_CFGID, cfg::kGain) * 256.0, 0, 1024);
     bool surround = aud_get_bool(VGM_CFGID, cfg::kSurround);
 

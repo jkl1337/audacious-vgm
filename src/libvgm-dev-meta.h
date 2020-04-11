@@ -27,6 +27,7 @@ struct ArrayRef {
   constexpr ArrayRef(const T *data, int len) : data(data), len(len) {}
 
   constexpr const T& operator[](int pos) const { return data[pos]; }
+  constexpr int size() const { return len; }
 
   const T *begin() const { return data; }
   const T *end() const { return data + len; }
@@ -95,10 +96,11 @@ struct LinkSpec {
 };
 
 struct DeviceConfig;
+typedef ArrayRef<DeviceConfig> DeviceConfigList;
 
-extern const DeviceConfig lib_devices[];
+extern const DeviceConfig lib_devices_p[];
 extern const size_t num_devices;
-extern const ArrayRef<DeviceConfig> lib_devices_a;
+extern const DeviceConfigList lib_devices;
 
 struct DeviceConfig {
   uint_least32_t id = CoreInvalid;
@@ -133,7 +135,7 @@ struct DeviceConfig {
   int num_channels_all() const {
     int count = num_channels();
     if (has_linked()) {
-      for (const auto &d : lib_devices_a) {
+      for (const auto &d : lib_devices) {
         if (d.id == linked.id) {
           count += d.num_channels();
           break;

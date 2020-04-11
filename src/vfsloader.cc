@@ -100,7 +100,7 @@ inline uint32_t readLE32(const unsigned char *data) {
 #pragma clang diagnostic pop
 
 UINT8 VFSLoader::s_open(void *context) {
-  auto self = reinterpret_cast<VFSLoader *>(context);
+  auto self = static_cast<VFSLoader *>(context);
 
   VFSFile &file = self->file_;
 
@@ -141,36 +141,36 @@ UINT8 VFSLoader::s_open(void *context) {
 }
 
 UINT32 VFSLoader::s_read(void *context, UINT8 *buffer, UINT32 numBytes) {
-  auto self = reinterpret_cast<VFSLoader *>(context);
+  auto self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return 0;
   return self->ops_->read(buffer, numBytes);
 }
 
 UINT8 VFSLoader::s_seek(void *context, UINT32 offset, UINT8 whence) {
-  auto self = reinterpret_cast<VFSLoader *>(context);
+  auto self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return 1;
   return self->ops_->seek(offset, whence);
 }
 
 UINT8 VFSLoader::s_close(void *context) {
-  auto self = reinterpret_cast<VFSLoader *>(context);
+  auto self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return 0;
   return self->ops_->close();
 }
 
 INT32 VFSLoader::s_tell(void *context) {
-  auto self = reinterpret_cast<VFSLoader *>(context);
+  auto self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return -1;
   return self->ops_->tell();
 }
 
 UINT32 VFSLoader::s_length(void *context) {
-  auto self = reinterpret_cast<VFSLoader *>(context);
+  auto self = static_cast<VFSLoader *>(context);
   return self->bytes_total_;
 }
 
 UINT8 VFSLoader::s_eof(void *context) {
-  auto self = reinterpret_cast<VFSLoader *>(context);
+  auto self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return 1;
   return self->ops_->eof();
 }

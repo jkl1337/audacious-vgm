@@ -4,6 +4,7 @@
 #include <libaudcore/i18n.h>
 #include <libaudcore/plugin.h>
 
+#include "comm.h"
 #include "config.h"
 
 namespace audvgm {
@@ -32,14 +33,10 @@ class Plugin : public InputPlugin {
                 Index<char> *image) override;
   bool play(const char *filename, VFSFile &file) override;
 
-  struct RealTimeConfig {
-    float gain = 0.0;
-    bool surround = false;
-  };
+  PlaybackStatus &playback_status() const { return *playback_status_; }
 
  private:
-  static std::atomic<RealTimeConfig> realtime_config;
-  friend void ui_realtime_config_update();
+  PlaybackStatus *playback_status_ = nullptr;
 };
 
 }

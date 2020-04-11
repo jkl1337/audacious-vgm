@@ -129,7 +129,7 @@ constexpr vgm::OptionSpec ga20_opts[]{{"Linear interpolation",
 
 namespace vgm {
 
-const DeviceConfig lib_devices[] = {
+const DeviceConfig lib_devices_p[] = {
     {DEVID_SN76496, "SN76489", sn76489_cg, sn76489_cs},
     {DEVID_YM2413, "YM2413", ym2413_cg, ym2413_cs},
     {DEVID_YM2612, "YM2612", ym2612_cg, ym2612_cs, ym2612_opts},
@@ -173,7 +173,7 @@ const DeviceConfig lib_devices[] = {
     {DEVID_C352, "C352", s32ch_cg, mame_cs, c352_opts},
     {DEVID_GA20, "Irem GA20", s4ch_cg, mame_cs, ga20_opts}};
 
-const size_t num_devices = sizeof(lib_devices) / sizeof(lib_devices[0]);
-const ArrayRef<DeviceConfig> lib_devices_a(lib_devices, num_devices);
+const size_t num_devices = sizeof(lib_devices_p) / sizeof(lib_devices_p[0]);
+const ArrayRef<DeviceConfig> lib_devices(lib_devices_p, num_devices);
 
 }  // namespace vgm

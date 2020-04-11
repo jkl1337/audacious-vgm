@@ -28,10 +28,10 @@ inline std::string dev_name_to_key(const char* label) {
 
 std::string make_all_devices_list() {
   std::string value;
-  value.reserve(vgm::lib_devices_a.len * 9);
+  value.reserve(vgm::lib_devices.len * 9);
 
   const char* sep = "";
-  for (const auto& d : vgm::lib_devices_a) {
+  for (const auto& d : vgm::lib_devices) {
     value += sep;
     value += dev_name_to_key(d.label);
     sep = ",";
@@ -70,11 +70,11 @@ std::string n2hexstr(I w) {
 
 void set_defaults() {
   std::vector<const char*> vec;
-  int n_devices = vgm::lib_devices_a.len;
+  int n_devices = vgm::lib_devices.len;
 
   VGMPlayer player;
 
-  for (const auto& dev : vgm::lib_devices_a) {
+  for (const auto& dev : vgm::lib_devices) {
     std::string opt_val, pan_val;
     const char* values[] = {"disable", "0",     "mute_0", "0",     "mute_1",
                             "0",       nullptr, nullptr,  nullptr, nullptr,

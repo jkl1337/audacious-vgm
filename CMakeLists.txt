@@ -22,14 +22,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(libvgm)
 
-find_package(Qt5 COMPONENTS Widgets REQUIRED)
+find_package(Qt5 COMPONENTS Widgets LinguistTools REQUIRED)
 pkg_search_module(audacious REQUIRED IMPORTED_TARGET audacious>=3.9)
+
+#qt5_create_translation(QM_FILES src/device-panel.cc vgm_es.ts OPTIONS
+#        -tr-function-alias QT_TR_NOOP+=N_)
 
 add_library(vgm MODULE src/vfsloader.cc src/gzfile.cc
         src/libvgm-dev-meta.cpp src/vgm.cc src/vgm.h src/internal.cc
         src/internal.h src/player.cc
         src/config.h src/tags.cc src/tags.h src/config.cc src/prefs.h
-        src/prefs.cc)
+        src/prefs.cc src/comm.cc src/comm.h src/device-panel.cc src/device-panel.h src/i18n.h)
+
 
 set_target_properties(vgm PROPERTIES PREFIX "")
 

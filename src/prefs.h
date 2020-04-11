@@ -1,9 +1,11 @@
 #ifndef AUDACIOUS_VGM_PREFS_H
 #define AUDACIOUS_VGM_PREFS_H
 
+class PlaybackStatus;
+
 namespace audvgm {
 
-void *populate_chip_prefs();
+void *construct_chip_control_widget(PlaybackStatus &playback_status);
 
 }
 
