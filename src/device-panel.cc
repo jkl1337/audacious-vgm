@@ -25,7 +25,7 @@ class ChannelTreeModel : public QAbstractItemModel {
   void set_current_device(int idx);
  private:
   const vgm::DeviceConfigList& device_db_;
-  const vgm::DeviceConfig* cur_device_;
+  std::vector<std::reference_wrapper<const vgm::DeviceConfig>> current_devices_;
 };
 }  // namespace audvgm
 
@@ -39,13 +39,20 @@ QVariant ChannelTreeModel::data(const QModelIndex& index, int role) const { retu
 QModelIndex ChannelTreeModel::index(int row, int column, const QModelIndex& parent) const {
   return QModelIndex();
 }
+
 Qt::ItemFlags ChannelTreeModel::flags(const QModelIndex& index) const {
   return QAbstractItemModel::flags(index);
 }
 
 QModelIndex ChannelTreeModel::parent(const QModelIndex& child) const { return QModelIndex(); }
 
-int ChannelTreeModel::rowCount(const QModelIndex& parent) const { return 0; }
+int ChannelTreeModel::rowCount(const QModelIndex& parent) const {
+  int num_channels = current_devices_.size() > 1 ? static_cast<int>(current_devices_.size()) : 0;
+  for (const vgm::DeviceConfig& d : current_devices_) {
+    num_channels += d.num_channels_all();
+  }
+  return num_channels;
+}
 
 int ChannelTreeModel::columnCount(const QModelIndex& parent) const {
   // Channel, Mute, Solo, Panning, [Editable area]
@@ -56,7 +63,6 @@ bool ChannelTreeModel::setData(const QModelIndex& index, const QVariant& value, 
   if (!index.isValid())
     return false;
 
-  if (index.)
 }
 
 QVariant ChannelTreeModel::headerData(int section, Qt::Orientation orientation, int role) const {
@@ -71,7 +77,9 @@ QVariant ChannelTreeModel::headerData(int section, Qt::Orientation orientation, 
 
 void ChannelTreeModel::set_current_device(int idx) {
   beginResetModel();
+#if 0
   if (idx >= 0 && idx < device_db_.len)
     cur_device_ = &device_db_[idx];
+#endif
   endResetModel();
 }

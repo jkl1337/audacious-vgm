@@ -9,8 +9,15 @@
 
 namespace vgm {
 
+constexpr const int kMaxChips = 2;
+constexpr const int kMaxLinked = 2;
+constexpr const int kMaxChannels = 32;
+
+constexpr const uint_least32_t kCoreInvalid = UINT32_MAX;
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "google-explicit-constructor"
+#pragma ide diagnostic ignored "hicpp-explicit-conversions"
 template <class T>
 struct ArrayRef {
   const T *data;
@@ -33,8 +40,6 @@ struct ArrayRef {
   const T *end() const { return data + len; }
 };
 #pragma clang diagnostic pop
-
-const uint_least32_t CoreInvalid = UINT32_MAX;
 
 struct ChannelGroup {
   int serial = 0;
@@ -66,33 +71,33 @@ struct OptionSpec {
     SwitchOption sw;
     ChoiceOption choice;
   };
-  uint_least32_t core = CoreInvalid;
+  uint_least32_t core = kCoreInvalid;
 
   constexpr OptionSpec(const char *label, const char *doc, uint_least32_t value,
-                       uint_least32_t core = CoreInvalid)
-      : type(Switch), sw{label, doc, value} {}
+                       uint_least32_t core = kCoreInvalid)
+      : type(Switch), sw{label, doc, value}, core(core) {}
 
   constexpr OptionSpec(const char *label, const char *doc,
                        const ArrayRef<SwitchOption> choices,
-                       uint_least32_t core = CoreInvalid)
-      : type(Choice), choice{label, doc, choices} {}
+                       uint_least32_t core = kCoreInvalid)
+      : type(Choice), choice{label, doc, choices}, core(core) {}
 
   constexpr OptionSpec() : type(None), sw() {}
 };
 
 struct CoreSpec {
-  uint_least32_t core = CoreInvalid;
+  uint_least32_t core = kCoreInvalid;
   const char label[12] = {};
   bool panning = false;
 
-  constexpr bool valid() const { return core != CoreInvalid; }
+  constexpr bool valid() const { return core != kCoreInvalid; }
 };
 
 struct LinkSpec {
-  uint_least32_t id = CoreInvalid;
+  uint_least32_t id = kCoreInvalid;
   const char prefix[4] = {};
 
-  constexpr bool valid() const { return id != CoreInvalid; }
+  constexpr bool valid() const { return id != kCoreInvalid; }
 };
 
 struct DeviceConfig;
@@ -103,7 +108,7 @@ extern const size_t num_devices;
 extern const DeviceConfigList lib_devices;
 
 struct DeviceConfig {
-  uint_least32_t id = CoreInvalid;
+  uint_least32_t devid = kCoreInvalid;
   const char label[12] = {};
 
   ArrayRef<ChannelGroup> channels;
@@ -113,8 +118,12 @@ struct DeviceConfig {
 
   LinkSpec linked;
 
+  constexpr int num_cores() const { return cores.len; }
+  constexpr bool has_options() const { return options.len; }
   constexpr bool has_linked() const { return linked.valid(); }
-  constexpr bool valid() const { return id != CoreInvalid; }
+  constexpr bool valid() const { return devid != kCoreInvalid; }
+
+  const DeviceConfig *linked_config() const;
 
   bool has_panning() const {
     for (const auto &core : cores) {
@@ -136,7 +145,7 @@ struct DeviceConfig {
     int count = num_channels();
     if (has_linked()) {
       for (const auto &d : lib_devices) {
-        if (d.id == linked.id) {
+        if (d.devid == linked.id) {
           count += d.num_channels();
           break;
         }

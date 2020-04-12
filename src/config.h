@@ -2,6 +2,9 @@
 #define AUDACIOUS_VGM_CONFIG_H
 
 #include <atomic>
+
+#include "libvgm-int.h"
+
 namespace audvgm {
 
 // extern Config config;
@@ -37,6 +40,9 @@ constexpr const char *kGuessTrackNum = "guess_track_num";
 }  // namespace cfg
 
 void set_defaults();
+void load_player_settings(const PlayerSettings &settings);
+void save_player_settings(const PlayerSettings &settings);
+void save_player_settings_device(int dev_idx, const PlayerSettings::Device &dev_settings);
 
 }  // namespace audvgm
 

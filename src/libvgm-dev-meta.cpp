@@ -136,15 +136,14 @@ const DeviceConfig lib_devices_p[] = {
     {DEVID_YM2151, "YM2151", s8ch_cg, mame_cs},
     {DEVID_SEGAPCM, "Sega PCM", s16ch_cg, mame_cs},
     {DEVID_RF5C68, "RF5C68", s8ch_cg, rf5c68_cs},
-    {DEVID_YM2203, "YM2203", ym22_cg, mame_cs, .linked = LinkSpec{DEVID_AY8910, "PSG"}},
-    {DEVID_YM2608, "YM2608", ym26_cg, mame_cs, .linked = LinkSpec{DEVID_AY8910, "PSG"}},
-    {DEVID_YM2610, "YM2610", ym26_cg, mame_cs, .linked = LinkSpec{DEVID_AY8910, "PSG"}},
+    {DEVID_YM2203, "YM2203", ym22_cg, mame_cs, {}, LinkSpec{DEVID_AY8910, "PSG"}},
+    {DEVID_YM2608, "YM2608", ym26_cg, mame_cs, {}, LinkSpec{DEVID_AY8910, "PSG"}},
+    {DEVID_YM2610, "YM2610", ym26_cg, mame_cs, {}, LinkSpec{DEVID_AY8910, "PSG"}},
     {DEVID_YM3812, "YM3812", ym2413_cg, ym3812_cs},
     {DEVID_YM3526, "YM3526", ym2413_cg, mame_cs},
     {DEVID_Y8950, "Y8950", y8950_cg, mame_cs},
     {DEVID_YMF262, "YMF262", ymf262_cg, ym3812_cs},
-    {DEVID_YMF278B, "YMF278B", s24ch_cg, ymf278b_cs,
-     .linked = LinkSpec{DEVID_YMF262, "FM"}},
+    {DEVID_YMF278B, "YMF278B", s24ch_cg, ymf278b_cs, {}, LinkSpec{DEVID_YMF262, "FM"}},
     {DEVID_YMF271, "YMF271", s12ch_cg, mame_cs},
     {DEVID_YMZ280B, "YMZ280B", s8ch_cg, mame_cs},
     {DEVID_32X_PWM, "PWM", s1ch_cg, gens_cs},
@@ -175,5 +174,16 @@ const DeviceConfig lib_devices_p[] = {
 
 const size_t num_devices = sizeof(lib_devices_p) / sizeof(lib_devices_p[0]);
 const ArrayRef<DeviceConfig> lib_devices(lib_devices_p, num_devices);
+
+const DeviceConfig* DeviceConfig::linked_config() const {
+  if (!has_linked())
+    return nullptr;
+
+  for (const auto &dev : lib_devices) {
+    if (dev.devid == linked.id)
+      return &dev;
+  }
+  return nullptr;
+}
 
 }  // namespace vgm

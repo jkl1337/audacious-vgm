@@ -1,5 +1,5 @@
-#ifndef AUDACIOUS_VGM_VGM_H
-#define AUDACIOUS_VGM_VGM_H
+#ifndef AUDACIOUS_VGM_PLUGIN_H
+#define AUDACIOUS_VGM_PLUGIN_H
 
 #include <libaudcore/i18n.h>
 #include <libaudcore/plugin.h>
@@ -34,11 +34,15 @@ class Plugin : public InputPlugin {
   bool play(const char *filename, VFSFile &file) override;
 
   PlaybackStatus &playback_status() const { return *playback_status_; }
+  SettingsManager &settings_manager() const { return *settings_container_; }
+  const PlayerBackendSettings &backend_settings() const { return settings_container_->backend(); }
+  static SettingsManager *settings_hack;
 
  private:
   PlaybackStatus *playback_status_ = nullptr;
+  SettingsManager *settings_container_ = nullptr;
 };
 
 }
 
-#endif  // AUDACIOUS_VGM_VGM_H
+#endif  // AUDACIOUS_VGM_PLUGIN_H

@@ -2,9 +2,7 @@
 
 #include <libaudcore/runtime.h>
 
-#include <algorithm>
 #include <cstring>
-#include <memory>
 #include <player/playerbase.hpp>
 #include <player/vgmplayer.hpp>
 #include <string>
@@ -61,8 +59,9 @@ std::string n2hexstr(I w) {
   }
   std::string rc(len + 2, '0');
   rc[1] = 'x';
-  for (size_t i = 2, j = (len - 1) * 4; i < len + 2; ++i, j -= 4)
+  for (size_t i = 2, j = (len - 1) * 4; i < len + 2; ++i, j -= 4) {
     rc[i] = digits[(w >> j) & 0x0f];
+  }
   return rc;
 }
 
@@ -70,41 +69,37 @@ std::string n2hexstr(I w) {
 
 void set_defaults() {
   std::vector<const char*> vec;
-  int n_devices = vgm::lib_devices.len;
 
   VGMPlayer player;
+  auto settings = PlayerSettings::init_lib_defaults();
 
-  for (const auto& dev : vgm::lib_devices) {
+  for (const auto [dev, dev_meta] : settings.devices_with_meta()) {
     std::string opt_val, pan_val;
-    const char* values[] = {"disable", "0",     "mute_0", "0",     "mute_1",
-                            "0",       nullptr, nullptr,  nullptr, nullptr,
-                            nullptr,   nullptr, nullptr};
+    const char* values[] = {"disable", "0",     "mute_0", "0",     "mute_1", "0",
+                            "solo_0",  "0",     "solo_1", "0",     nullptr,  nullptr,
+                            nullptr,   nullptr, nullptr,  nullptr, nullptr};
     const char** endp = values;
     while (*endp) endp++;
 
-    if (dev.cores.len > 1) {
+    if (dev_meta.num_cores() > 1) {
       *endp++ = "core";
       *endp++ = "0";
     }
-    if (dev.options.len) {
-      PLR_DEV_OPTS opts = {};
 
-      if (!player.GetDeviceOptions(PLR_DEV_ID(dev.id, 0), opts)) {
-        opt_val = n2hexstr(opts.coreOpts);
-        *endp++ = "opts";
-        *endp++ = opt_val.c_str();
-      } else {
-        AUDERR("Error returned from GetDeviceOptions for %s.\n", dev.label);
-      }
+    if (dev_meta.has_options()) {
+      opt_val = n2hexstr(dev.core_opts);
+      *endp++ = "opts";
+      *endp++ = opt_val.c_str();
     }
-    if (dev.has_panning()) {
-      pan_val = make_zeros_list(dev.num_channels());
+
+    if (dev_meta.has_panning()) {
+      pan_val = make_zeros_list(dev.chips[0].panning.size());
       *endp++ = "pan";
       *endp = pan_val.c_str();
     }
 
     std::string section("vgm.");
-    section.append(dev_name_to_key(dev.label));
+    section.append(dev_name_to_key(dev_meta.label));
     aud_config_set_defaults(section.c_str(), values);
   }
 
@@ -141,5 +136,7 @@ void set_defaults() {
                                              nullptr};
   aud_config_set_defaults(VGM_CFGID, defaults);
 }
+
+void load_player_settings(const PlayerSettings& settings) {}
 
 }  // namespace audvgm

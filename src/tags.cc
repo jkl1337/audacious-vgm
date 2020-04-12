@@ -10,7 +10,7 @@
 
 #include "config.h"
 #include "internal.h"
-#include "vgm.h"
+#include "plugin.h"
 
 namespace audvgm {
 

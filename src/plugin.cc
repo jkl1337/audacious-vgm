@@ -1,199 +1,190 @@
-#include "configure.h"
+
 #include "plugin.h"
-#include "driver.h"
 
-
-static ComboItem chip_select_combo[] = {
-        ComboItem(N_("Chip #1"), 1),
-        ComboItem(N_("Chip #2"), 2),
-};
-
-
-static void mute_cb(unsigned ch, unsigned i) {
-    audvgm_playback_settings.mute_masks[i].fetch_xor(1 << ch);
-}
-
-constexpr WidgetConfig WidgetMask(void (*callback)(),
-                                  const char *hook = nullptr) {
-    return WidgetConfig(WidgetConfig::Bool, nullptr, 0, 0, callback, hook);
-}
-
-static constexpr PreferencesWidget vgm_widgets_dev_chip_sel[] = {
-        WidgetLabel(N_("Select Chip")),
-        WidgetCombo(nullptr, WidgetInt(audcfg.chip_sel),
-                    {{chip_select_combo}}),
-        WidgetCheck("Channel 1", WidgetMask([] { mute_cb(0, 0); })),
-        WidgetCheck("Channel 2", WidgetMask([] { mute_cb(1, 0); })),
-        WidgetCheck("Channel 3", WidgetMask([] { mute_cb(2, 0); })),
-        WidgetCheck("Channel 4", WidgetMask([] { mute_cb(3, 0); })),
-        WidgetCheck("Channel 5", WidgetMask([] { mute_cb(4, 0); })),
-        WidgetCheck("Channel 6", WidgetMask([] { mute_cb(5, 0); })),
-        WidgetCheck("Channel 7", WidgetMask([] { mute_cb(6, 0); })),
-        WidgetCheck("Channel 8", WidgetMask([] { mute_cb(7, 0); })),
-        WidgetCheck("Channel 9", WidgetMask([] { mute_cb(8, 0); })),
-        WidgetCheck("Channel 10", WidgetMask([] { mute_cb(9, 0); })),
-        WidgetCheck("Channel 11", WidgetMask([] { mute_cb(10, 0); })),
-        WidgetCheck("Channel 12", WidgetMask([] { mute_cb(11, 0); })),
-        WidgetCheck("Channel 13", WidgetMask([] { mute_cb(12, 0); })),
-        WidgetCheck("Channel 14", WidgetMask([] { mute_cb(13, 0); })),
-        WidgetCheck("Channel 15", WidgetMask([] { mute_cb(14, 0); })),
-        WidgetCheck("Channel 16", WidgetMask([] { mute_cb(15, 0); })),
-        WidgetCheck("Channel 1", WidgetMask([] { mute_cb(0, 1); })),
-        WidgetCheck("Channel 2", WidgetMask([] { mute_cb(1, 1); })),
-        WidgetCheck("Channel 3", WidgetMask([] { mute_cb(2, 1); })),
-        WidgetCheck("Channel 4", WidgetMask([] { mute_cb(3, 1); })),
-        WidgetCheck("Channel 5", WidgetMask([] { mute_cb(4, 1); })),
-        WidgetCheck("Channel 6", WidgetMask([] { mute_cb(5, 1); })),
-        WidgetCheck("Channel 7", WidgetMask([] { mute_cb(6, 1); })),
-        WidgetCheck("Channel 8", WidgetMask([] { mute_cb(7, 1); })),
-        WidgetCheck("Channel 9", WidgetMask([] { mute_cb(8, 1); })),
-        WidgetCheck("Channel 10", WidgetMask([] { mute_cb(9, 1); })),
-        WidgetCheck("Channel 11", WidgetMask([] { mute_cb(10, 1); })),
-        WidgetCheck("Channel 12", WidgetMask([] { mute_cb(11, 1); })),
-        WidgetCheck("Channel 13", WidgetMask([] { mute_cb(12, 1); })),
-        WidgetCheck("Channel 14", WidgetMask([] { mute_cb(13, 1); })),
-        WidgetCheck("Channel 15", WidgetMask([] { mute_cb(14, 1); })),
-        WidgetCheck("Channel 16", WidgetMask([] { mute_cb(15, 1); })),
-
-};
-
-static const PreferencesWidget vgm_widgets_chip_opts[] = {
-        WidgetBox({{vgm_widgets_dev_chip_sel}}),
-};
-
-
-#include <QList>
-#include <QString>
-#include <QTreeWidget>
-#include <QTreeView>
-#include <QHeaderView>
-#include <QtWidgets/QStyledItemDelegate>
-#include <QtWidgets/QTableWidget>
-#include <QLayout>
-
+#include <libaudcore/hook.h>
+#include <libaudcore/i18n.h>
+#include <libaudcore/interface.h>
+#include <libaudcore/plugin.h>
+#include <libaudcore/preferences.h>
+#include <libaudcore/runtime.h>
 #include <libaudqt/libaudqt.h>
 
-class NoEditDelegate : public QStyledItemDelegate {
-public:
-    explicit NoEditDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
+#include "config.h"
+#include "prefs.h"
 
-    QWidget *
-    createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
-        return nullptr;
-    }
-};
+namespace audvgm {
 
-class SliderDelegate : public QStyledItemDelegate {
-    QSize sizeHint_;
+void vgm_configure();
 
-public:
-    explicit SliderDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {
-        std::unique_ptr<QSlider> slider(new QSlider(Qt::Horizontal));
-        slider->setRange(-256, 256);
-        slider->setTickInterval(64);
-        slider->setTickPosition(QSlider::TicksBelow);
-        sizeHint_ = slider->sizeHint();
-    }
+SettingsManager *Plugin::settings_hack = nullptr;
 
-    QWidget *
-    createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
-        auto *slider = new QSlider(Qt::Horizontal, parent);
-        slider->setRange(-256, 256);
-        slider->setTickInterval(64);
-        slider->setTickPosition(QSlider::TicksBelow);
+bool Plugin::init() {
+  set_defaults();
 
-        connect(slider, &QSlider::valueChanged, [=](int) {
-            const_cast<SliderDelegate *>(this)->commitData(slider);
-        });
-        return slider;
-    }
+  playback_status_ = new PlaybackStatus;
+  PlayerSettings ps = PlayerSettings::init_lib_defaults();
 
-    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
-    }
+  settings_container_ = new SettingsManager(ps);
+  settings_hack = settings_container_;
 
-    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
-        return sizeHint_;
-    }
-};
+  aud_plugin_menu_add(AudMenuID::Main, audvgm::vgm_configure, _("VGM Configure..."),
+                      nullptr);
 
-class ConfigurationWidget : public QWidget {
-public:
-    explicit ConfigurationWidget(QWidget *parent = nullptr);
-
-};
-
-#include <QPushButton>
-
-ConfigurationWidget::ConfigurationWidget(QWidget *parent)
-        : QWidget(parent) {
-    auto widget = new QTreeWidget(this);
-    auto layout = new QVBoxLayout;
-    this->setLayout(layout);
-    layout->addWidget(widget, 1);
-
-    //auto widget = new QTreeWidget(this);
-    widget->setColumnCount(5);
-
-    auto no_edit_delegate = new NoEditDelegate();
-    widget->setItemDelegateForColumn(0, no_edit_delegate);
-    widget->setItemDelegateForColumn(1, no_edit_delegate);
-    widget->setItemDelegateForColumn(2, no_edit_delegate);
-    //widget->setItemDelegateForColumn(3, no_edit_delegate);
-    widget->setItemDelegateForColumn(3, new SliderDelegate());
-
-    auto t1 = new QTreeWidgetItem(widget, {"YM2612"});
-    t1->setExpanded(true);
-    t1->setFlags(Qt::ItemIsEnabled);
-
-    for (int i = 0; i < 6; ++i) {
-        auto item = new QTreeWidgetItem(t1);
-        item->setText(0, QString("Channel %1").arg(i + 1));
-        item->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-        item->setCheckState(1, Qt::Unchecked);
-        item->setCheckState(2, Qt::Unchecked);
-        widget->openPersistentEditor(item, 3);
-//        auto slider = new QSlider(Qt::Horizontal, widget);
-//        slider->setRange(-256, 256);
-//        slider->setTickInterval(64);
-//        slider->setTickPosition(QSlider::TicksBelow);
-        //widget->setItemWidget(item, 3, slider);
-    }
-    new QTreeWidgetItem(t1, {"DAC"});
-
-
-    auto hi = widget->headerItem();
-    hi->setFlags(hi->flags() | Qt::ItemIsUserCheckable);
-    hi->setCheckState(1, Qt::Unchecked);
-    hi->setCheckState(2, Qt::Unchecked);
-
-    widget->setHeaderLabels({"Channel", "M", "S", "Pan", "Label"});
-    widget->header()->setSectionResizeMode(1, QHeaderView::Fixed);
-    widget->header()->setSectionResizeMode(2, QHeaderView::Fixed);
-    widget->resizeColumnToContents(0);
-    widget->resizeColumnToContents(1);
-    widget->resizeColumnToContents(2);
-    widget->resizeColumnToContents(3);
-
-    widget->setSelectionMode(QAbstractItemView::ExtendedSelection);
-
-
-//    QObject::connect(m, &QTableWidget::itemChanged, [this] (){
-//
-//    });
-
-    QObject::connect(widget, &QTreeWidget::itemChanged, [=](QTreeWidgetItem *item, int column) {
-        printf("FUCK %u\n", column);
-        fflush(stdout);
-    });
-
+  return true;
 }
 
-static void *populate() {
-    return new ConfigurationWidget();
+void Plugin::cleanup() {
+  delete playback_status_;
+  delete settings_container_;
 }
 
+const char Plugin::about[] =
+    N_("VGM music decoder based on libvgm 1.0\n"
+       "Supported formats: vgm\n\n"
+       "Audacious plugin by:\n"
+       "John Luebs <jkl@johnluebs.com>\n");
+
+const char *const Plugin::exts[] = {"vgm", "vgz", nullptr};
+
+static void *populate_chip_prefs();
+
+namespace {
+
+int playback_rate_item_selected;
+
+const ComboItem playback_rate_items[] = {
+    {N_("Recorded Rate"), 0},
+    {N_("60 Hz (NTSC)"), 60},
+    {N_("50 Hz (PAL)"), 50},
+    {N_("Other:"), -1},
+};
+
+inline int playback_rate_preset(int r) {
+  switch (r) {
+    case 0:
+    case 50:
+    case 60:
+      return r;
+    default:
+      return -1;
+  }
+}
+
+ArrayRef<ComboItem> playback_rate_combo_fill() {
+  ArrayRef<ComboItem> items(playback_rate_items);
+  playback_rate_item_selected =
+      playback_rate_preset(aud_get_int(VGM_CFGID, cfg::kPlaybackRate));
+  if (playback_rate_item_selected != -1) items.len = 3;
+  return items;
+}
+
+void playback_rate_combo_change() {
+  if (playback_rate_item_selected != -1)
+    aud_set_int(VGM_CFGID, cfg::kPlaybackRate, playback_rate_item_selected);
+  hook_call("audvgm config playback_rate", nullptr);
+}
+
+void playback_rate_entry_change() {
+  playback_rate_item_selected =
+      playback_rate_preset(aud_get_int(VGM_CFGID, cfg::kPlaybackRate));
+  hook_call("audvgm config playback_rate", nullptr);
+}
+
+const PreferencesWidget playback_rate_widgets[] = {
+    WidgetCombo(N_("Playback Rate"),
+                WidgetInt(playback_rate_item_selected, playback_rate_combo_change,
+                          "audvgm config playback_rate"),
+                {{}, playback_rate_combo_fill}),
+    WidgetSpin(nullptr,
+               WidgetInt(VGM_CFGID, cfg::kPlaybackRate, playback_rate_entry_change,
+                         "audvgm config playback_rate"),
+               {0, 8000, 1, N_("Hz")}),
+};
+
+const ComboItem resampler_quality_items[] = {
+    {N_("High"), cfg::kResampleQualityHQ},
+    {N_("HQ up, LQ down"), cfg::kResampleQualityHQUp},
+    {N_("Low"), cfg::kResampleQualityLQ},
+};
+
+const ComboItem chip_sr_mode_items[] = {
+    {N_("Native"), cfg::kChipSrModeNative},
+    {N_("Highest"), cfg::kChipSrModeHighest},
+    {N_("Custom"), cfg::kChipSrModeCustom},
+};
+
+const PreferencesWidget length_widgets[] = {
+    WidgetLabel(N_("<b>Length</b>")),
+    WidgetSpin(N_("Loop Count:"), WidgetInt(VGM_CFGID, cfg::kLoopCount),
+               {1, 14400, 1, N_("times")}),
+    WidgetSpin(N_("Fade time:"), WidgetInt(VGM_CFGID, cfg::kFadeLength),
+               {0, 360000, 200, N_("ms")}),
+    WidgetCheck(N_("Hard stop old VGMs"), WidgetBool(VGM_CFGID, cfg::kHardStopOld)),
+    WidgetLabel(N_("<b>Gap between tracks</b>")),
+    WidgetSpin(N_("Looping:"), WidgetInt(VGM_CFGID, cfg::kGapLooping),
+               {0, 360000, 200, N_("ms")}),
+    WidgetSpin(N_("Non-looping:"), WidgetInt(VGM_CFGID, cfg::kGapNonLooping),
+               {0, 360000, 200, N_("ms")}),
+    WidgetLabel(N_("<b>Tags</b>")),
+    WidgetCheck(N_("Prefer Japanese Tags"), WidgetBool(VGM_CFGID, cfg::kPreferJPNTag)),
+    WidgetCheck(N_("Guess track number from file name"),
+                WidgetBool(VGM_CFGID, cfg::kGuessTrackNum))};
+
+static void test_callback() {
+  auto gain = aud_get_double(VGM_CFGID, cfg::kGain);
+  auto m = Plugin::settings_hack->mutate();
+  m.set_gain(gain);
+  m.commit();
+}
+const PreferencesWidget playback_widgets[] = {
+    WidgetLabel(N_("<b>Playback Quality</b>")),
+    WidgetSpin(N_("Sample Rate"), WidgetInt(VGM_CFGID, cfg::kSampleRate),
+               {8000, 96000, 50, N_("Hz")}),
+    WidgetCombo(N_("Resample Quality"), WidgetString(VGM_CFGID, cfg::kResampleQuality),
+                {{resampler_quality_items}}),
+    WidgetBox({{playback_rate_widgets}, true}),
+    WidgetCombo(N_("Chip Sample Mode"), WidgetString(VGM_CFGID, cfg::kChipSrMode),
+                {{chip_sr_mode_items}}),
+    WidgetSpin(N_("Chip Rate"), WidgetInt(VGM_CFGID, cfg::kChipSampleRate),
+               {0, 96000, 50, N_("Hz")}),
+    WidgetLabel(N_("<b>Audio Post Process</b>")),
+    WidgetSpin(N_("Gain"), WidgetFloat(VGM_CFGID, cfg::kGain, test_callback), {0.0, 4.0, 0.005}),
+    WidgetCheck(N_("\"Surround\" Sound"), WidgetBool(VGM_CFGID, cfg::kSurround)),
+    WidgetCheck(N_("Double SSG volume"), WidgetBool(VGM_CFGID, cfg::kSSG2XVol)),
+};
+
+const PreferencesWidget general_widgets_columns[] = {
+    WidgetBox({length_widgets}),
+    WidgetSeparator(),
+    WidgetBox({playback_widgets}),
+};
+
+const PreferencesWidget general_widgets[] = {
+    WidgetBox({{general_widgets_columns}, true})};
 
 
+const PreferencesWidget chip_widgets[] = {
+    WidgetCustomQt(audvgm::populate_chip_prefs)
+};
 
+const NotebookTab notebook_tabs[] = {{N_("General"), {general_widgets}},
+                                            {N_("Other Options"), {chip_widgets}}};
 
+const PreferencesWidget widgets[] = {WidgetNotebook({{notebook_tabs}})};
 
+}  // namespace
+
+const PluginPreferences Plugin::prefs = {widgets};
+
+}  // namespace audvgm
+
+LIBAUDCORE_PUBLIC audvgm::Plugin aud_plugin_instance;
+
+static void *audvgm::populate_chip_prefs() {
+  auto plugin = static_cast<Plugin*>(&aud_plugin_instance);
+  return construct_chip_control_widget(plugin->playback_status(), plugin->settings_manager());
+}
+
+void audvgm::vgm_configure() {
+  audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance));
+}

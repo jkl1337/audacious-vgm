@@ -7,8 +7,8 @@
 
 #include "config.h"
 #include "internal.h"
+#include "plugin.h"
 #include "tags.h"
-#include "vgm.h"
 
 // FIXME: configuration
 #if 0
@@ -101,7 +101,7 @@ inline void pack_frame(int16_t *out, const Frame f) {
  * fading. Packs into buffer of type BufT.
  */
 template <typename BufT, typename CntT, typename PosT = uint_fast32_t>
-void process_frames(BufT *out, PosT frames_remaining, PosT frames_fade, CntT frame_count,
+void process_frames(BufT *out, PosT remaining_frames, PosT fade_frames, CntT num_frames,
                     WAVE_32BS *data, int gain_256, bool surround) {
   constexpr long kSampMin = -(1 << 24) / 2;
   constexpr long kSampMax = (1 << 24) / 2 - 1;
@@ -109,23 +109,23 @@ void process_frames(BufT *out, PosT frames_remaining, PosT frames_fade, CntT fra
   const int_fast64_t gains[2]{gain_256, surround ? -gain_256 : gain_256};
   int_fast64_t s[2];
 
-  CntT fade_start_i = frame_count;
-  if (frames_remaining > frames_fade) {
-    PosT f = frames_remaining - frames_fade;
-    if (f < frame_count) {
+  CntT fade_start_i = num_frames;
+  if (remaining_frames > fade_frames) {
+    PosT f = remaining_frames - fade_frames;
+    if (f < num_frames) {
       fade_start_i = f;
     }
   } else {
     fade_start_i = 0;
   }
 
-  for (CntT i = 0; i < frame_count; ++i) {
+  for (CntT i = 0; i < num_frames; ++i) {
     s[0] = data[i].L;
     s[1] = data[i].R;
 
     if (i >= fade_start_i) {
-      uint_fast64_t fade_volume = uint_fast64_t{frames_remaining - i} << 24;
-      fade_volume /= frames_fade;
+      uint_fast64_t fade_volume = uint_fast64_t{remaining_frames - i} << 24;
+      fade_volume /= fade_frames;
       fade_volume *= fade_volume;
       fade_volume >>= 24;
 
@@ -143,7 +143,8 @@ void process_frames(BufT *out, PosT frames_remaining, PosT frames_fade, CntT fra
 }  // namespace
 
 bool Plugin::play(const char *, VFSFile &file) {
-  static const int buffer_n_frames = 4096;
+  static constexpr const int kNChannels = 2;
+  static constexpr const int kBufferSize = 4096;
 
   uint_fast32_t sample_rate =
       std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kSampleRate), 0, UINT32_MAX);
@@ -169,29 +170,73 @@ bool Plugin::play(const char *, VFSFile &file) {
   TagHandler::get_tags(driver, tuple);
   set_playback_tuple(tuple.ref());
 
+  // FIXME: Break out
+
+  const auto *settings = backend_settings().acquire(true);
+
+  int gain_256 = std::clamp<int>(settings->gain() * 256.0, 0, 1024);
+  bool surround = settings->surround();
+
+  struct SongDevice {
+    int idx;
+    uint32_t type;
+    uint8_t instance;
+    const vgm::DeviceConfig &dev_info;
+    SongDevice(int idx, uint32_t type, uint8_t instance, const vgm::DeviceConfig &dev_info)
+        : idx(idx), type(type), instance(instance), dev_info(dev_info) {}
+  };
+
+  std::vector<PLR_DEV_INFO> dev_info_list;
+  driver.GetSongDeviceInfo(dev_info_list);
+
+  std::vector<SongDevice> devices;
+  // FIXME: break out
+  for (const auto &d : dev_info_list) {
+    int lib_id = 0; // bug in library
+    for (int idx = 0; idx < vgm::lib_devices.size(); ++idx) {
+      const auto &di = vgm::lib_devices[idx];
+      if (d.type == di.devid) {
+        devices.emplace_back(idx, d.type, d.instance, di);
+      }
+    }
+  }
+
+  for (const auto &d : devices) {
+    PLR_DEV_OPTS opts{};
+    driver.GetDeviceOptions(PLR_DEV_ID(d.type, d.instance), opts);
+    settings->load_dev_opts(d.idx, d.instance, opts);
+    driver.SetDeviceOptions(PLR_DEV_ID(d.type, d.instance), opts);
+  }
+
+
   driver.SetSampleRate(sample_rate);
   driver.Start();
 
   // GetSongDeviceInfo has distinct function depending on whether driver is "PLAYING", ie after
   // start has been called.
-  std::vector<PLR_DEV_INFO> dev_info_list;
   driver.GetSongDeviceInfo(dev_info_list);
   playback_status_->set_device_info(std::move(dev_info_list));
 
   dump_info(driver);
 
-  std::vector<WAVE_32BS> render_buffer(buffer_n_frames);
-  std::vector<int16_t> output_buffer(buffer_n_frames * 2);
+  std::vector<WAVE_32BS> render_buffer(kBufferSize);
+  std::vector<int16_t> output_buffer(kBufferSize * kNChannels);
 
   uint_fast32_t total_frames = get_total_frames(driver, sample_rate, loop_count, fade_length);
   uint_fast32_t frame_position = 0;
-  uint_fast32_t frames_fade = 0;
 
-  if (driver.GetLoopTicks()) {
-    frames_fade =
+  bool is_looping = driver.GetLoopTicks();
+
+  uint_fast32_t gap_length = std::clamp<long>(
+      aud_get_int(VGM_CFGID, is_looping ? cfg::kGapLooping : cfg::kGapNonLooping), 0, UINT32_MAX);
+  uint_fast32_t gap_frames =
+      std::min(uint_fast64_t{gap_length} * sample_rate / 1000, uint_fast64_t{UINT32_MAX});
+
+  uint_fast32_t fade_frames = 0;
+  if (is_looping) {
+    fade_frames =
         std::min(uint_fast64_t{fade_length} * sample_rate / 1000, uint_fast64_t{UINT32_MAX});
-  }
-
+  };
 #if 0
   std::array<uint_least32_t, 2> last_mute_mask = {audvgm_playback_settings.mute_masks[0],
                                                   audvgm_playback_settings.mute_masks[1]};
@@ -211,35 +256,40 @@ bool Plugin::play(const char *, VFSFile &file) {
       frame_position = new_pos;
     }
 
-#if 0
-    for (int i = 0; i < 2; ++i) {
-      unsigned current_mute_mask = audvgm_playback_settings.mute_masks[i];
-      if (current_mute_mask != last_mute_mask[i]) {
-        PLR_MUTE_OPTS mute_opts = {.chnMute = {current_mute_mask}};
-        player->SetDeviceMuting(i, mute_opts);
-        last_mute_mask[i] = current_mute_mask;
+    settings = backend_settings().acquire();
+    if (settings) {
+      for (const auto &d : devices) {
+        PLR_MUTE_OPTS opts{};
+        settings->load_mute_opts(d.idx, d.instance, opts);
+        driver.SetDeviceMuting(PLR_DEV_ID(d.type, d.instance), opts);
       }
+      gain_256 = std::clamp<int>(settings->gain() * 256.0, 0, 1024);
+      surround = settings->surround();
     }
-#endif
 
-    int gain_256 = std::clamp<int>(aud_get_double(VGM_CFGID, cfg::kGain) * 256.0, 0, 1024);
-    bool surround = aud_get_bool(VGM_CFGID, cfg::kSurround);
+    int n_frames = 0;
+    if (frame_position < total_frames) {
 
-    uint_fast32_t frames_remaining = total_frames - frame_position;
-    int n_frames = std::min(render_buffer.size(), frames_remaining);
+      uint_fast32_t remaining_frames = total_frames - frame_position;
+      n_frames = std::min(render_buffer.size(), remaining_frames);
 
-    std::memset(render_buffer.data(), 0, render_buffer.size() * sizeof render_buffer[0]);
-    n_frames = driver.Render(n_frames, render_buffer.data());
+      std::memset(render_buffer.data(), 0, render_buffer.size() * sizeof render_buffer[0]);
+      n_frames = driver.Render(n_frames, render_buffer.data());
 
-    process_frames(output_buffer.data(), total_frames - frame_position, frames_fade, n_frames,
-                   render_buffer.data(), gain_256, surround);
+      process_frames(output_buffer.data(), total_frames - frame_position, fade_frames, n_frames,
+                     render_buffer.data(), gain_256, surround);
+    } else if (frame_position - total_frames < gap_frames) {
+      n_frames =
+          std::min(output_buffer.size() / kNChannels, gap_frames - (frame_position - total_frames));
+      std::memset(output_buffer.data(), 0, n_frames * kNChannels * sizeof output_buffer[0]);
+    } else {
+      break;
+    }
 
     write_audio(output_buffer.data(),
-                n_frames * 2 * int{sizeof(decltype(output_buffer)::value_type)});
+                n_frames * kNChannels * int{sizeof(decltype(output_buffer)::value_type)});
 
     frame_position += n_frames;
-
-    if (frame_position >= total_frames) break;
   }
   return true;
 }
