@@ -11,6 +11,10 @@
 #include <emu/cores/okim6258.h>
 #include <emu/cores/scsp.h>
 
+#include <player/playerbase.hpp>
+
+using namespace vgm;
+
 namespace {
 
 const char* sn76489_cname[] = {"Noise"};
@@ -26,9 +30,9 @@ using Cr = vgm::CoreSpec;
 const ChG sn76489_cg[] = {{3, sn76489_cname}};
 const ChG ym2413_cg[] = {{9, ym2413_cname}};
 const ChG ym2612_cg[] = {{6, ym2612_cname}};
-const ChG s1ch_cg[] = {{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}},
-          s6ch_cg[]{{5}}, s8ch_cg[]{{8}}, s12ch_cg[]{{12}}, s16ch_cg[]{{16}},
-          s24ch_cg[]{{24}}, s28ch_cg[]{{28}}, s32ch_cg[]{{32}};
+const ChG s1ch_cg[] = {{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}}, s6ch_cg[]{{5}},
+          s8ch_cg[]{{8}}, s12ch_cg[]{{12}}, s16ch_cg[]{{16}}, s24ch_cg[]{{24}}, s28ch_cg[]{{28}},
+          s32ch_cg[]{{32}};
 const ChG ym22_cg[] = {{3, nullptr, "FM"}};
 const ChG ym26_cg[] = {{6, nullptr, "FM"}, {6, nullptr, "PCM"}, {0, delta_t_cname}};
 const ChG y8950_cg[] = {{9, ym2413_cname}, {0, delta_t_cname}};
@@ -38,11 +42,9 @@ const ChG nes_cg[] = {{0, nes_cname}};
 
 const Cr mame_cs[] = {{FCC_MAME}};
 const Cr sn76489_cs[] = {{FCC_MAME}, {FCC_MAXM, "Maxim", true}};
-const Cr ym2413_cs[] = {
-    {FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
-const Cr ym2612_cs[] = {{FCC_GPGX, "GPGX", false},
-                        {FCC_NUKE, "Nuked OPN2", false},
-                        {FCC_GENS, "GENS", false}};
+const Cr ym2413_cs[] = {{FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
+const Cr ym2612_cs[] = {
+    {FCC_GPGX, "GPGX", false}, {FCC_NUKE, "Nuked OPN2", false}, {FCC_GENS, "GENS", false}};
 const Cr rf5c68_cs[] = {{FCC_MAME}, {FCC_GENS, "GENS"}};
 const Cr ym3812_cs[] = {{FCC_MAME}, {FCC_ADLE, "AdLibEmu"}};
 const Cr ymf278b_cs[] = {{FCC_OMSX, "openMSX"}};
@@ -55,12 +57,12 @@ const Cr wswan_cs[] = {{0, "in_wsr"}};
 const Cr vboy_cs[] = {{FCC_MEDN, "Mednafen"}};
 const Cr saa_cs[] = {{FCC_MAME}, {FCC_VBEL, "Valley Bell"}};
 
-constexpr vgm::SwitchOption ym2612_chip_type_opts[]{
+constexpr SwitchOption ym2612_chip_type_opts[]{
     {"YM2612", "Emulate original YM2612", OPT_YM2612_TYPE_OPN2},
     {"YM3438 ASIC", "Emulate ASIC YM3438.", OPT_YM2612_TYPE_OPN2C_ASIC},
     {"YM3438 Discrete", "Emulate Discrete YM3438.", OPT_YM2612_TYPE_OPN2C_DISC}};
 
-constexpr vgm::OptionSpec ym2612_opts[]{
+constexpr OptionSpec ym2612_opts[]{
     {"Pseudo Stereo",
      "Pseudo Stereo mode. Alternate between updating left and right "
      "speaker, adds some stereo effect to sharp and noisy sounds.",
@@ -73,9 +75,8 @@ constexpr vgm::OptionSpec ym2612_opts[]{
     {"DAC highpass", "Enable DAC highpass filter.", OPT_YM2612_DAC_HIGHPASS, FCC_GENS},
     {"SSG-EG", "Enable (broken) SSG-EG emulation.", OPT_YM2612_SSGEG, FCC_GENS}};
 
-constexpr vgm::OptionSpec gb_opts[]{
-    {"Boost Wave Channel", "Boost volume of wave channel by 6dB.",
-     OPT_GB_DMG_BOOST_WAVECH},
+constexpr OptionSpec gb_opts[]{
+    {"Boost Wave Channel", "Boost volume of wave channel by 6dB.", OPT_GB_DMG_BOOST_WAVECH},
     {"Disable WaveRAM corruption",
      "Non-GBC models overwrite parts of the WaveRAM when triggered while "
      "reading a sample.",
@@ -85,9 +86,9 @@ constexpr vgm::OptionSpec gb_opts[]{
      "files optimized with vgm_cmp.",
      OPT_GB_DMG_LEGACY_MODE}};
 
-constexpr vgm::OptionSpec nes_opts[]{
-    {"Unmute on reset", "Enable all channels by default after reset.",
-     OPT_NES_UNMUTE_ON_RESET, FCC_NSFP},
+constexpr OptionSpec nes_opts[]{
+    {"Unmute on reset", "Enable all channels by default after reset.", OPT_NES_UNMUTE_ON_RESET,
+     FCC_NSFP},
     {"Non-linear Mixer", nullptr, OPT_NES_NONLINEAR_MIXER, FCC_NSFP},
     {"Phrase Refresh", nullptr, OPT_NES_PHASE_REFRESH, FCC_NSFP},
     {"Duty Swap", "Swap 25:75 and 50:50 duty cycles (behavior of some Famiclones)",
@@ -99,8 +100,7 @@ constexpr vgm::OptionSpec nes_opts[]{
      OPT_NES_ENABLE_PNOISE, FCC_NSFP},
     {"DPCM Anti Click", "Nullify register 4011 writes, but preserve nonlinearity",
      OPT_NES_DPCM_ANTI_CLICK, FCC_NSFP},
-    {"Randomize Noise", "Randomize noise at device reset", OPT_NES_RANDOMIZE_NOISE,
-     FCC_NSFP},
+    {"Randomize Noise", "Randomize noise at device reset", OPT_NES_RANDOMIZE_NOISE, FCC_NSFP},
     {"Tri Mute",
      "Stops Triangle wave if set to freq = 0, processes it a very high rate "
      "otherwise.",
@@ -112,25 +112,19 @@ constexpr vgm::OptionSpec nes_opts[]{
     {"4085 Reset", "Reset modulation phase on 4085 writes.", OPT_NES_4085_RESET},
     {"FDS Disable", "Disable FDS", OPT_NES_FDS_DISABLE}};
 
-constexpr vgm::OptionSpec m6258_opts[]{
+constexpr OptionSpec m6258_opts[]{
     {"Force 12-bit", "Enforce 12-bit output precision", OPT_OKIM6258_FORCE_12BIT}};
 
-constexpr vgm::OptionSpec scsp_opts[]{
-    {"Bypass DSP", "skip all DSP calculations (huge speedup, DSP is broken anyway)",
-     OPT_SCSP_BYPASS_DSP}};
-constexpr vgm::OptionSpec c352_opts[]{{"Disable Rear",
-                                       "Mute rear speakers regardless of configuration",
-                                       OPT_C352_MUTE_REAR}};
-constexpr vgm::OptionSpec ga20_opts[]{{"Linear interpolation",
-                                       "Enable linear interpolation for samples.",
-                                       OPT_GA20_INTERPOLATE}};
-
-}  // namespace
-
-namespace vgm {
+constexpr OptionSpec scsp_opts[]{{"Bypass DSP",
+                                  "skip all DSP calculations (huge speedup, DSP is broken anyway)",
+                                  OPT_SCSP_BYPASS_DSP}};
+constexpr OptionSpec c352_opts[]{
+    {"Disable Rear", "Mute rear speakers regardless of configuration", OPT_C352_MUTE_REAR}};
+constexpr OptionSpec ga20_opts[]{
+    {"Linear interpolation", "Enable linear interpolation for samples.", OPT_GA20_INTERPOLATE}};
 
 const DeviceConfig lib_devices_p[] = {
-    {DEVID_SN76496, "SN76489", sn76489_cg, sn76489_cs},
+    {DEVID_SN76496, "SN76496", sn76489_cg, sn76489_cs},
     {DEVID_YM2413, "YM2413", ym2413_cg, ym2413_cs},
     {DEVID_YM2612, "YM2612", ym2612_cg, ym2612_cs, ym2612_opts},
     {DEVID_YM2151, "YM2151", s8ch_cg, mame_cs},
@@ -172,18 +166,105 @@ const DeviceConfig lib_devices_p[] = {
     {DEVID_C352, "C352", s32ch_cg, mame_cs, c352_opts},
     {DEVID_GA20, "Irem GA20", s4ch_cg, mame_cs, ga20_opts}};
 
-const size_t num_devices = sizeof(lib_devices_p) / sizeof(lib_devices_p[0]);
-const ArrayRef<DeviceConfig> lib_devices(lib_devices_p, num_devices);
+}  // namespace
+
+const size_t vgm::num_devices = sizeof(lib_devices_p) / sizeof(lib_devices_p[0]);
+const ArrayRef<DeviceConfig> vgm::lib_devices(lib_devices_p, num_devices);
 
 const DeviceConfig* DeviceConfig::linked_config() const {
-  if (!has_linked())
-    return nullptr;
+  if (!has_linked()) return nullptr;
 
-  for (const auto &dev : lib_devices) {
-    if (dev.devid == linked.id)
-      return &dev;
+  for (const auto& dev : lib_devices) {
+    if (dev.devid == linked.id) return &dev;
   }
   return nullptr;
 }
 
-}  // namespace vgm
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "hicpp-signed-bitwise"
+
+const char* vgm::accurate_chip_name(const PLR_DEV_INFO& info) {
+  uint32_t flags = info.cParams;
+  switch (info.type) {
+    case DEVID_SN76496: {
+      if (info.instance == 1 && flags & (1 << 31)) {
+        return "T6W28";
+      }
+      uint8_t shift_reg_width = (flags >> 16) & 0xFF;
+      uint8_t psg_flags = (flags >> 24) & 0x7F;
+      uint16_t psg_feedback = (flags & 0xFFFF);
+      switch (shift_reg_width) {
+        case 0x0F: {
+          if (psg_flags & 0x08)
+            return "SN94624";
+          else
+            return "SN76489";
+        } break;
+        case 0x10: {
+          if (psg_feedback == 0x0009)
+            return "SEGA PSG";
+          else if (psg_feedback == 0x0022)
+            return "NCR7496";
+        } break;
+        case 0x11: {
+          if (psg_flags & 0x08)
+            return "SN76494";
+          else
+            return "SN76489A";  // SN76489A/SN76496
+        } break;
+        default:
+          break;
+      }
+    } break;
+    case DEVID_YM2413: {
+      if (flags & 0x01) return "VRC7";
+    } break;
+    case DEVID_YM2610: {
+      if (flags & 0x01) return "YM2610B";
+    } break;
+    case DEVID_AY8910: {
+      switch (flags & 0xFF) {
+        case 0x00:
+          return "AY-3-8910";
+        case 0x01:
+          return "AY-3-8912";
+        case 0x02:
+          return "AY-3-8913";
+        case 0x03:
+          return "AY8930";
+        case 0x04:
+          return "AY-3-8914";
+        case 0x10:
+          return "YM2149";
+        case 0x11:
+          return "YM3439";
+        case 0x12:
+          return "YMZ284";
+        case 0x13:
+          return "YMZ294";
+      }
+    } break;
+    case DEVID_NES_APU: {
+      if (flags & 0x01) return "NES APU + FDS";
+    } break;
+    case DEVID_K051649: {
+      if (flags & 0x01) return "K052539";
+    } break;
+    case DEVID_C219: { /* XXX: WATCH OUT */
+      return "C140 (219)";
+    } break;
+    case DEVID_ES5506: {
+      if (!(flags & (1 << 31))) return "ES5505";
+    } break;
+    default:
+      break;
+  }
+  for (const auto& di : lib_devices) {
+    if (di.devid == info.type) {
+      return di.label;
+    }
+  }
+  return "";
+}
+
+#pragma clang diagnostic pop

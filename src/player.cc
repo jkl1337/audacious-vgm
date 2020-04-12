@@ -33,7 +33,7 @@ void dump_info(PlayerBase &player) {
   std::vector<PLR_DEV_INFO> dev_info_list;
   player.GetSongDeviceInfo(dev_info_list);
 
-  for (auto dev : dev_info_list) {
+  for (const auto &dev : dev_info_list) {
     int chip_id = dev.instance < 2 ? dev.instance : 0;
 
     auto chip_device = vgm_player.GetDevicePtr(dev.type, chip_id);
@@ -43,9 +43,10 @@ void dump_info(PlayerBase &player) {
     auto dev_def = dev_info->devDef;
 
     printf(R"EOT(
+AccuChip!!: %s
 name: %s
 author: %s
-)EOT",
+)EOT", vgm::accurate_chip_name(dev),
            dev_def->name, dev_def->author);
 
     printf(R"EOT(srcSR: %u dstSR: %u linkDevCount: %u

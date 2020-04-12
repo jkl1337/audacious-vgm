@@ -7,6 +7,8 @@
 
 #pragma clang diagnostic push
 
+struct PLR_DEV_INFO;
+
 namespace vgm {
 
 constexpr const int kMaxChips = 2;
@@ -103,7 +105,6 @@ struct LinkSpec {
 struct DeviceConfig;
 typedef ArrayRef<DeviceConfig> DeviceConfigList;
 
-extern const DeviceConfig lib_devices_p[];
 extern const size_t num_devices;
 extern const DeviceConfigList lib_devices;
 
@@ -144,7 +145,7 @@ struct DeviceConfig {
   int num_channels_all() const {
     int count = num_channels();
     if (has_linked()) {
-      for (const auto &d : lib_devices) {
+      for (const auto &d : all()) {
         if (d.devid == linked.id) {
           count += d.num_channels();
           break;
@@ -154,7 +155,12 @@ struct DeviceConfig {
     return count;
   }
 
+  static constexpr const DeviceConfigList& all()  {
+    return lib_devices;
+  }
 };
+
+const char* accurate_chip_name(const PLR_DEV_INFO &);
 
 }  // namespace vgm
 
