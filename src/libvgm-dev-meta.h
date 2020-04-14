@@ -36,7 +36,7 @@ struct ArrayRef {
 
   constexpr ArrayRef(const T *data, int len) : data(data), len(len) {}
 
-  constexpr const T& operator[](int pos) const { return data[pos]; }
+  constexpr const T &operator[](int pos) const { return data[pos]; }
   constexpr int size() const { return len; }
 
   const T *begin() const { return data; }
@@ -50,6 +50,7 @@ struct ChannelGroup {
   const char group[8] = {};
 
   constexpr bool valid() const { return serial || named.len; }
+  constexpr const char* name() const { return group[0] ? group : nullptr; }
 };
 
 struct SwitchOption {
@@ -80,8 +81,7 @@ struct OptionSpec {
                        uint_least32_t core = kCoreInvalid)
       : type(Switch), sw{label, doc, value}, core(core) {}
 
-  constexpr OptionSpec(const char *label, const char *doc,
-                       const ArrayRef<SwitchOption> choices,
+  constexpr OptionSpec(const char *label, const char *doc, const ArrayRef<SwitchOption> choices,
                        uint_least32_t core = kCoreInvalid)
       : type(Choice), choice{label, doc, choices}, core(core) {}
 
@@ -96,12 +96,21 @@ struct CoreSpec {
   constexpr bool valid() const { return core != kCoreInvalid; }
 };
 
+class DeviceConfig;
+
 struct LinkSpec {
-  uint_least32_t id = kCoreInvalid;
+  const DeviceConfig *dev = nullptr;
   const char prefix[4] = {};
 
-  constexpr bool valid() const { return id != kCoreInvalid; }
+  constexpr bool valid() const { return dev != nullptr; }
 };
+
+const char *accurate_chip_name(const PLR_DEV_INFO &);
+const char *core_name(uint32_t core_id);
+
+class DeviceConfigList;
+extern const size_t num_devices;
+extern const DeviceConfigList lib_devices;
 
 struct DeviceConfig {
   uint_least32_t devid = kCoreInvalid;
@@ -119,7 +128,7 @@ struct DeviceConfig {
   constexpr bool has_linked() const { return linked.valid(); }
   constexpr bool valid() const { return devid != kCoreInvalid; }
 
-  const DeviceConfig *linked_config() const;
+  const DeviceConfig *linked_config() const { return linked.dev; }
 
   bool has_panning() const {
     for (const auto &core : cores) {
@@ -136,28 +145,34 @@ struct DeviceConfig {
     }
     return count;
   }
-};
 
-class DeviceConfigList;
-extern const size_t num_devices;
-extern const DeviceConfigList lib_devices;
+  int num_channels_all() const {
+    return num_channels() + (has_linked() ? linked_config()->num_channels() : 0);
+  }
+
+  const char *core_name(uint32_t core_id = 0) const {
+    if (!core_id) core_id = cores[0].core;
+    for (const auto &c : cores) {
+      if (c.core == core_id) {
+        if (c.label[0]) return c.label;
+        break;
+      }
+    }
+    return vgm::core_name(core_id);
+  }
+};
 
 class DeviceConfigList : public ArrayRef<DeviceConfig> {
  public:
-  constexpr DeviceConfigList(const DeviceConfig *data, int len) : ArrayRef<DeviceConfig>(data, len) {}
+  constexpr DeviceConfigList(const DeviceConfig *data, int len)
+      : ArrayRef<DeviceConfig>(data, len) {}
   int find_index(unsigned int devid) const {
-      for (const auto* it = begin(); it != end(); ++it) {
-        if (it->devid == devid)
-          return it - begin();
-      }
-      return -1;
+    for (const auto *it = begin(); it != end(); ++it) {
+      if (it->devid == devid) return it - begin();
+    }
+    return -1;
   }
-//  static constexpr const DeviceConfigList& all()  {
-//    return lib_devices;
-//  }
 };
-
-const char* accurate_chip_name(const PLR_DEV_INFO &);
 
 }  // namespace vgm
 

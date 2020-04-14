@@ -22,7 +22,7 @@ void PlaybackStatus::set_device_info(std::vector<PLR_DEV_INFO> &&dev_info_list) 
   event_queue(kUpdateEvent, this);
 }
 
-std::vector<PLR_DEV_INFO> PlaybackStatus::device_info() const {
+std::vector<PLR_DEV_INFO> PlaybackStatus::get_device_info() const {
   std::lock_guard lock(dev_info_lock_);
   return dev_info_list_;
 }

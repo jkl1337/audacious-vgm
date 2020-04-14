@@ -34,7 +34,7 @@ add_library(vgm MODULE src/vfsloader.cc src/gzfile.cc
         src/libvgm-dev-meta.cpp src/plugin.cc src/plugin.h src/internal.cc
         src/internal.h src/player.cc
         src/config.h src/tags.cc src/tags.h src/config.cc src/prefs.h
-        src/prefs.cc src/comm.cc src/comm.h src/device-panel.cc src/device-panel.h src/i18n.h src/libvgm-int.cpp src/libvgm-int.h src/device-select.cc src/device-select.h)
+        src/prefs.cc src/comm.cc src/comm.h src/device-panel.cc src/device-panel.h src/i18n.h src/libvgm-int.cpp src/libvgm-int.h src/device-select.cc src/device-select.h src/channel-select.cc src/channel-select.h)
 
 
 set_target_properties(vgm PROPERTIES PREFIX "")

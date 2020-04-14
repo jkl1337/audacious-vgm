@@ -6,6 +6,7 @@
 
 #include <QtCore/QAbstractListModel>
 #include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QPushButton>
@@ -13,6 +14,7 @@
 #include <QtWidgets/QTreeView>
 #include <bitset>
 
+#include "channel-select.h"
 #include "comm.h"
 #include "device-select.h"
 #include "libvgm-dev-meta.h"
@@ -78,7 +80,7 @@ DeviceListModel::DeviceListModel(PlaybackStatus &playback_status, SettingsManage
     auto *self = static_cast<DeviceListModel *>(ctx);
     self->running_devices_.reset();
 
-    for (const auto &a : ps.device_info()) {
+    for (const auto &a : ps.get_device_info()) {
       for (int i = 0; i < vgm::lib_devices.len; ++i) {
         if (vgm::lib_devices[i].devid == a.type) {
           self->running_devices_[i] = true;
@@ -374,17 +376,32 @@ ChipControlWidget *ChipControlWidget::construct(PlaybackStatus &playback_status,
 
 void *construct_chip_control_widget(PlaybackStatus &playback_status,
                                     SettingsManager &settings_manager) {
+  auto *widget = new QWidget();
+  auto *layout = audqt::make_hbox(widget);
+
   auto *tree_view = new QTreeView();
+  layout->addWidget(tree_view, 0);
+
   tree_view->setItemDelegate(new DeviceListViewItemDelegate(tree_view));
 
-  auto *model = new vgmqt::DeviceTreeModel(settings_manager, playback_status);
-  auto *filter_model = new vgmqt::DeviceTreeFiltered();
+  auto *model = new vgmqt::DeviceTreeModel(settings_manager, playback_status, tree_view);
+  auto *filter_model = new vgmqt::DeviceTreeFiltered(model);
   filter_model->setSourceModel(model);
 
   tree_view->setSortingEnabled(false);
   tree_view->setMinimumHeight(800);
-  tree_view->setModel(filter_model);
-  return tree_view;
+  tree_view->setModel(model);
+  //tree_view->expandRecursively(QModelIndex(), 1);
+  tree_view->header()->setStretchLastSection(false);
+  tree_view->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+  //tree_view->resizeColumnToContents(0);
+
+  auto *chan_view = new QTreeView();
+  layout->addWidget(chan_view, 1);
+
+  auto *chan_model = new vgmqt::ChannelTreeModel(settings_manager, &playback_status, chan_view);
+  chan_view->setModel(chan_model);
+  return widget;
   //return ChipControlWidget::construct(playback_status, settings_manager, nullptr);
 }
 

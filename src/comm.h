@@ -124,7 +124,7 @@ class PlaybackStatus {
   ~PlaybackStatus();
 
   void set_device_info(std::vector<PLR_DEV_INFO> &&dev_info_list);
-  std::vector<PLR_DEV_INFO> device_info() const;
+  std::vector<PLR_DEV_INFO> get_device_info() const;
 
   void subscribe(NotifyFunc func, void *ctx = nullptr);
   void unsubscribe(NotifyFunc func, void *ctx = nullptr);

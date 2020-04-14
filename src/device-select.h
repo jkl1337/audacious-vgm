@@ -3,7 +3,6 @@
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QSortFilterProxyModel>
-#include <QtWidgets/QTreeView>
 #include <bitset>
 
 #include "libvgm-dev-meta.h"
@@ -14,6 +13,13 @@ class PlaybackStatus;
 }
 
 namespace vgmqt {
+
+struct PlayingDevice {
+  int dev_idx;
+  int instance;
+  uint32_t core;
+  const char *accurate_name;
+};
 
 class DeviceTreeModel : public QAbstractItemModel {
  public:
@@ -38,19 +44,8 @@ class DeviceTreeModel : public QAbstractItemModel {
 
   void data_changed_helper(const QModelIndex& p, const QVector<int>& roles);
 
-  struct RunningDevice {
-    int dev_idx;
-    int instance;
-    const char *accurate_name;
-
-    bool operator <(const RunningDevice &rhs) const {
-      return (dev_idx < rhs.dev_idx || (dev_idx == rhs.dev_idx && instance < rhs.instance));
-    }
-  };
-  using PlayingDevices = std::bitset<vgm::kNumDevices * vgm::kNumInstances>;
-  PlayingDevices playing_devices_old_;
-  using PlayingDevices2 = std::vector<RunningDevice>;
-  PlayingDevices2 playing_devices_3_;
+  using PlayingDevices = std::vector<PlayingDevice>;
+  PlayingDevices playing_devices_;
 };
 
 class DeviceTreeFiltered : public QSortFilterProxyModel {
