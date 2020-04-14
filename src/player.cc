@@ -36,11 +36,11 @@ void dump_info(PlayerBase &player) {
   for (const auto &dev : dev_info_list) {
     int chip_id = dev.instance < 2 ? dev.instance : 0;
 
-    auto chip_device = vgm_player.GetDevicePtr(dev.type, chip_id);
-    auto base_dev = &chip_device->base;
+    auto *chip_device = vgm_player.GetDevicePtr(dev.type, chip_id);
+    auto *base_dev = &chip_device->base;
 
-    auto dev_info = &base_dev->defInf;
-    auto dev_def = dev_info->devDef;
+    auto *dev_info = &base_dev->defInf;
+    const auto *dev_def = dev_info->devDef;
 
     printf(R"EOT(
 AccuChip!!: %s
@@ -173,10 +173,15 @@ bool Plugin::play(const char *, VFSFile &file) {
 
   // FIXME: Break out
 
-  const auto *settings = backend_settings().acquire(true);
+  int gain_256 = 0;
+  bool surround = false;
 
-  int gain_256 = std::clamp<int>(settings->gain() * 256.0, 0, 1024);
-  bool surround = settings->surround();
+  {
+    auto settings_ctx = settings_manager().read(true).value();
+
+    gain_256 = std::clamp<int>(settings_ctx->gain * 256.0, 0, 1024);
+    surround = settings_ctx->surround;
+  }
 
   struct SongDevice {
     int idx;
@@ -202,14 +207,16 @@ bool Plugin::play(const char *, VFSFile &file) {
     }
   }
 
-  for (const auto &d : devices) {
-    PLR_DEV_OPTS opts{};
-    driver.GetDeviceOptions(PLR_DEV_ID(d.type, d.instance), opts);
-    settings->load_dev_opts(d.idx, d.instance, opts);
-    driver.SetDeviceOptions(PLR_DEV_ID(d.type, d.instance), opts);
+  {
+    auto settings_ctx = settings_manager().read(true).value();
+
+    for (const auto &d : devices) {
+      PLR_DEV_OPTS opts{};
+      driver.GetDeviceOptions(PLR_DEV_ID(d.type, d.instance), opts);
+      settings_ctx.load_dev_opts(d.idx, d.instance, opts);
+      driver.SetDeviceOptions(PLR_DEV_ID(d.type, d.instance), opts);
+    }
   }
-
-
   driver.SetSampleRate(sample_rate);
   driver.Start();
 
@@ -237,15 +244,7 @@ bool Plugin::play(const char *, VFSFile &file) {
   if (is_looping) {
     fade_frames =
         std::min(uint_fast64_t{fade_length} * sample_rate / 1000, uint_fast64_t{UINT32_MAX});
-  };
-#if 0
-  std::array<uint_least32_t, 2> last_mute_mask = {audvgm_playback_settings.mute_masks[0],
-                                                  audvgm_playback_settings.mute_masks[1]};
-  for (int i = 0; i < 2; ++i) {
-    PLR_MUTE_OPTS mute_opts = {.chnMute = {last_mute_mask[i]}};
-    player->SetDeviceMuting(i, mute_opts);
   }
-#endif
 
   open_audio(FMT_S16_NE, sample_rate, 2);
 
@@ -257,15 +256,19 @@ bool Plugin::play(const char *, VFSFile &file) {
       frame_position = new_pos;
     }
 
-    settings = backend_settings().acquire();
-    if (settings) {
-      for (const auto &d : devices) {
-        PLR_MUTE_OPTS opts{};
-        settings->load_mute_opts(d.idx, d.instance, opts);
-        driver.SetDeviceMuting(PLR_DEV_ID(d.type, d.instance), opts);
+    {
+      auto settings_ctx = settings_manager().read();
+      if (settings_ctx.has_value()) {
+        const auto &settings = settings_ctx.value();
+
+        for (const auto &d : devices) {
+          PLR_MUTE_OPTS opts{};
+          settings.load_mute_opts(d.idx, d.instance, opts);
+          driver.SetDeviceMuting(PLR_DEV_ID(d.type, d.instance), opts);
+        }
+        gain_256 = std::clamp<int>(settings->gain * 256.0, 0, 1024);
+        surround = settings->surround;
       }
-      gain_256 = std::clamp<int>(settings->gain() * 256.0, 0, 1024);
-      surround = settings->surround();
     }
 
     int n_frames = 0;
@@ -292,6 +295,7 @@ bool Plugin::play(const char *, VFSFile &file) {
 
     frame_position += n_frames;
   }
+  playback_status_->set_device_info(std::vector<PLR_DEV_INFO>());
   return true;
 }
 

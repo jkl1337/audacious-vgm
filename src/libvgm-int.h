@@ -69,12 +69,12 @@ struct PlayerSettings {
   struct Device {
     uint32_t core = 0;
     uint32_t core_opts = 0;
-    std::array<Chip, vgm::kMaxChips> chips;
+    std::array<Chip, vgm::kNumInstances> chips;
   };
 
   std::vector<Device> devices;
 
-  float gain = 1.0;
+  double gain = 1.0;
   bool surround = false;
 
   static PlayerSettings init_lib_defaults();

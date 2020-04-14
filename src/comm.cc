@@ -27,13 +27,13 @@ std::vector<PLR_DEV_INFO> PlaybackStatus::device_info() const {
   return dev_info_list_;
 }
 
-void PlaybackStatus::hook(PlaybackStatus::NotifyFunc func, void *ctx) {
+void PlaybackStatus::subscribe(PlaybackStatus::NotifyFunc func, void *ctx) {
   std::lock_guard lock(hook_lock_);
   if (hooks_.empty()) hook_associate(kUpdateEvent, hook_cb, this);
   hooks_.push_back(HookInfo{func, ctx});
 }
 
-void PlaybackStatus::unhook(PlaybackStatus::NotifyFunc func, void *ctx) {
+void PlaybackStatus::unsubscribe(PlaybackStatus::NotifyFunc func, void *ctx) {
   std::lock_guard lock(hook_lock_);
   hooks_.erase(std::remove_if(hooks_.begin(), hooks_.end(),
                               [=](const HookInfo &info) {
@@ -56,128 +56,109 @@ void PlaybackStatus::call_hooks() {
   }
 }
 
-PlayerBackendSettings::PlayerBackendSettings(const PlayerSettings &ps)
-    : gain_(ps.gain), surround_(ps.surround), settings_update_(0) {
-  device_control_vec_.reserve(ps.devices.size() *
-                              std::tuple_size_v<decltype(PlayerSettings::Device::chips)>);
-
-  int i = 0;
-  for (const auto &src : ps.devices) {
-    for (const auto &src_chip : src.chips) {
-      ++i;
-      auto mute_mask = src_chip.channel_mute.to_ulong();
-      auto solo_mask = src_chip.channel_solo.to_ulong();
-      if (solo_mask) {
-        mute_mask |= ~solo_mask;
-      }
-      auto &d = device_control_vec_.emplace_back(
-          src.core, src.core_opts, src_chip.disable.to_ulong(),
-          mute_mask, src_chip.panning.size());
-      for (int i = 0; i < src_chip.panning.size(); ++i) {
-        d.panning[i].store(src_chip.panning[i], std::memory_order_relaxed);
-      }
-    }
+template <typename T>
+bool SettingsManager::WriteContext::write_value(T &dest, const T &src) {
+  if (src != dest) {
+    dest = src;
+    flag_.clear(std::memory_order_relaxed);
+    return true;
   }
-  commit();
+  return false;
 }
 
-bool SettingsManager::Mutator::set_muting(int dev_idx, int chip, PlayerSettings::ChannelMask solo,
-                                            PlayerSettings::ChannelMask mute) {
-  auto *sb = settings_block(container_.current_, dev_idx, chip);
-  auto *be = backend_control_block(dev_idx, chip);
-  if (!be || !sb) return false;
-
-  sb->channel_solo |= solo;
-  sb->channel_mute |= mute;
-
-  be->channel_mute.store((~sb->channel_solo | sb->channel_mute).to_ulong(),
-                         std::memory_order_relaxed);
-  return true;
+template <typename Func>
+bool SettingsManager::WriteContext::store_to_device(int dev_idx, Func f) {
+  if (dev_idx < 0 || dev_idx >= backend_.devices.size()) {
+    return false;
+  }
+  return f(backend_.devices[dev_idx]);
 }
 
-bool SettingsManager::Mutator::clear_muting(int dev_idx, int chip,
-                                              PlayerSettings::ChannelMask solo,
-                                              PlayerSettings::ChannelMask mute) {
-  auto *sb = settings_block(container_.current_, dev_idx, chip);
-  auto *be = backend_control_block(dev_idx, chip);
-  if (!be || !sb) return false;
-
-  sb->channel_solo &= ~solo;
-  sb->channel_mute &= ~mute;
-
-  be->channel_mute.store((~sb->channel_solo | sb->channel_mute).to_ulong(),
-                         std::memory_order_relaxed);
-  return true;
+template <typename Func>
+bool SettingsManager::WriteContext::store_to_instance(int dev_idx, int instance, Func f) {
+  if (dev_idx < 0 || dev_idx >= backend_.devices.size() || instance < 0
+      || instance >= vgm::kNumInstances) {
+    return false;
+  }
+  return f(backend_.devices[dev_idx].chips[instance]);
 }
 
-bool SettingsManager::Mutator::set_core(int dev_idx, uint32_t core) {
-  auto *sb = settings_block(container_.current_, dev_idx);
-  auto *be = backend_control_block(dev_idx);
-  if (!be || !sb) return false;
-
-  sb->core = core;
-  be->core.store(sb->core, std::memory_order_relaxed);
-  return true;
+template <typename T, typename C>
+bool SettingsManager::WriteContext::store_in_range(T &dest, const T &src, const C &lo,
+                                                   const C &hi) {
+  if (src < lo || src > hi) return false;
+  if (src != dest) {
+    dest = src;
+    flag_.clear();
+    return true;
+  }
+  return false;
 }
 
-bool SettingsManager::Mutator::set_core_opts(int dev_idx, uint32_t core_opts) {
-  auto *sb = settings_block(container_.current_, dev_idx);
-  auto *be = backend_control_block(dev_idx);
-  if (!be || !sb) return false;
-
-  sb->core_opts |= core_opts;
-  be->core_opts.store(sb->core_opts, std::memory_order_relaxed);
-  return true;
+bool SettingsManager::WriteContext::set_mute(int dev_idx, int instance, bool level,
+                                             PlayerSettings::ChannelMask mask) {
+  return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
+    PlayerSettings::ChannelMask apply;
+    if (level) apply = apply.set();
+    return write_value(c.channel_mute, (c.channel_mute & ~mask) | (apply & mask));
+  });
 }
 
-bool SettingsManager::Mutator::clear_core_opts(int dev_idx, uint32_t core_opts) {
-  auto *sb = settings_block(container_.current_, dev_idx);
-  auto *be = backend_control_block(dev_idx);
-  if (!be || !sb) return false;
-
-  sb->core_opts &= ~core_opts;
-  be->core_opts.store(sb->core_opts, std::memory_order_relaxed);
-  return true;
+bool SettingsManager::WriteContext::set_solo(int dev_idx, int instance, bool level,
+                                             PlayerSettings::ChannelMask mask) {
+  return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
+    PlayerSettings::ChannelMask apply;
+    if (level) apply = apply.set();
+    return write_value(c.channel_solo, (c.channel_solo & ~mask) | (apply & mask));
+  });
 }
 
-bool SettingsManager::Mutator::set_gain(float gain) {
-  container_.current_.gain = gain;
-  container_.backend_.gain_.store(gain, std::memory_order_relaxed);
-  return true;
+bool SettingsManager::WriteContext::set_disable(int dev_idx, int instance, bool level,
+                                                PlayerSettings::DisableMask mask) {
+  return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
+    PlayerSettings::DisableMask apply;
+    if (level) apply = apply.set();
+    return write_value(c.disable, (c.disable & ~mask) | (apply & mask));
+  });
 }
 
-bool SettingsManager::Mutator::set_surround(bool surround) {
-  container_.current_.surround = surround;
-  container_.backend_.surround_.store(surround, std::memory_order_relaxed);
-  return true;
+bool SettingsManager::WriteContext::set_disable(int dev_idx, bool level,
+                                                PlayerSettings::DisableMask mask) {
+  return store_to_device(dev_idx, [=](PlayerSettings::Device &d) {
+    PlayerSettings::DisableMask apply;
+    if (level) apply = apply.set();
+    bool ret = false;
+    for (auto &c : d.chips) {
+      ret |= write_value(c.disable, (c.disable & ~mask) | (apply & mask));
+    }
+    return ret;
+  });
 }
 
-bool SettingsManager::Mutator::set_panning(int dev_idx, int chip, int channel, int16_t pan) {
-  auto *sb = settings_block(container_.current_, dev_idx, chip);
-  auto *be = backend_control_block(dev_idx, chip);
-  if (!be || !sb || channel < 0 || channel > sb->panning.size()) return false;
-
-  sb->panning[channel] = pan;
-  be->panning[channel].store(pan, std::memory_order_relaxed);
-  return true;
+bool SettingsManager::WriteContext::set_core(int dev_idx, uint32_t core) {
+  return store_to_device(dev_idx, [=](auto &d) {
+    return write_value(d.core, core);
+  });
 }
 
-bool SettingsManager::Mutator::set_disable(int dev_idx, int chip, PlayerSettings::DisableMask mask) {
-  auto *sb = settings_block(container_.current_, dev_idx, chip);
-  auto *be = backend_control_block(dev_idx, chip);
-  if (!be || !sb) return false;
-
-  sb->disable |= mask;
-  be->disable.store(sb->disable.to_ulong(), std::memory_order_relaxed);
-  return true;
+bool SettingsManager::WriteContext::set_core_opts(int dev_idx, uint32_t mask, uint32_t level) {
+  return store_to_device(dev_idx, [=](auto &d) {
+    return write_value(d.core_opts, (d.core_opts & ~mask) | (level & mask));
+  });
 }
 
-bool SettingsManager::Mutator::clear_disable(int dev_idx, int chip, PlayerSettings::DisableMask mask) {
-  auto *sb = settings_block(container_.current_, dev_idx, chip);
-  auto *be = backend_control_block(dev_idx, chip);
-  if (!be || !sb) return false;
+bool SettingsManager::WriteContext::set_panning(int dev_idx, int instance, int channel,
+                                                int16_t pan) {
+  return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
+    if (channel < 0 || channel >= c.panning.size()) return false;
+    return write_value(c.panning[channel], pan);
+  });
+}
 
-  sb->disable &= ~mask;
-  be->disable.store(sb->disable.to_ulong(), std::memory_order_relaxed);
-  return true;
+bool SettingsManager::WriteContext::set_gain(double gain) {
+  return write_value(backend_.gain, std::clamp(gain, 0.0, 4.0));
+}
+
+bool SettingsManager::WriteContext::set_surround(bool surround) {
+  return write_value(backend_.surround, surround);
 }

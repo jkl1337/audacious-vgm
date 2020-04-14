@@ -11,7 +11,8 @@ struct PLR_DEV_INFO;
 
 namespace vgm {
 
-constexpr const int kMaxChips = 2;
+constexpr const int kNumDevices = 41;
+constexpr const int kNumInstances = 2;
 constexpr const int kMaxLinked = 2;
 constexpr const int kMaxChannels = 32;
 
@@ -102,12 +103,6 @@ struct LinkSpec {
   constexpr bool valid() const { return id != kCoreInvalid; }
 };
 
-struct DeviceConfig;
-typedef ArrayRef<DeviceConfig> DeviceConfigList;
-
-extern const size_t num_devices;
-extern const DeviceConfigList lib_devices;
-
 struct DeviceConfig {
   uint_least32_t devid = kCoreInvalid;
   const char label[12] = {};
@@ -141,23 +136,25 @@ struct DeviceConfig {
     }
     return count;
   }
+};
 
-  int num_channels_all() const {
-    int count = num_channels();
-    if (has_linked()) {
-      for (const auto &d : all()) {
-        if (d.devid == linked.id) {
-          count += d.num_channels();
-          break;
-        }
+class DeviceConfigList;
+extern const size_t num_devices;
+extern const DeviceConfigList lib_devices;
+
+class DeviceConfigList : public ArrayRef<DeviceConfig> {
+ public:
+  constexpr DeviceConfigList(const DeviceConfig *data, int len) : ArrayRef<DeviceConfig>(data, len) {}
+  int find_index(unsigned int devid) const {
+      for (const auto* it = begin(); it != end(); ++it) {
+        if (it->devid == devid)
+          return it - begin();
       }
-    }
-    return count;
+      return -1;
   }
-
-  static constexpr const DeviceConfigList& all()  {
-    return lib_devices;
-  }
+//  static constexpr const DeviceConfigList& all()  {
+//    return lib_devices;
+//  }
 };
 
 const char* accurate_chip_name(const PLR_DEV_INFO &);

@@ -49,7 +49,7 @@ QModelIndex ChannelTreeModel::parent(const QModelIndex& child) const { return QM
 int ChannelTreeModel::rowCount(const QModelIndex& parent) const {
   int num_channels = current_devices_.size() > 1 ? static_cast<int>(current_devices_.size()) : 0;
   for (const vgm::DeviceConfig& d : current_devices_) {
-    num_channels += d.num_channels_all();
+    //num_channels += d.num_channels_all();
   }
   return num_channels;
 }

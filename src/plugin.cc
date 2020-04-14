@@ -132,9 +132,8 @@ const PreferencesWidget length_widgets[] = {
 
 static void test_callback() {
   auto gain = aud_get_double(VGM_CFGID, cfg::kGain);
-  auto m = Plugin::settings_hack->mutate();
+  auto m = Plugin::settings_hack->writer();
   m.set_gain(gain);
-  m.commit();
 }
 const PreferencesWidget playback_widgets[] = {
     WidgetLabel(N_("<b>Playback Quality</b>")),

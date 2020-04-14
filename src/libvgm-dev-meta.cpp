@@ -123,7 +123,7 @@ constexpr OptionSpec c352_opts[]{
 constexpr OptionSpec ga20_opts[]{
     {"Linear interpolation", "Enable linear interpolation for samples.", OPT_GA20_INTERPOLATE}};
 
-const DeviceConfig lib_devices_p[] = {
+const DeviceConfig lib_devices_p[kNumDevices] = {
     {DEVID_SN76496, "SN76496", sn76489_cg, sn76489_cs},
     {DEVID_YM2413, "YM2413", ym2413_cg, ym2413_cs},
     {DEVID_YM2612, "YM2612", ym2612_cg, ym2612_cs, ym2612_opts},
@@ -169,7 +169,7 @@ const DeviceConfig lib_devices_p[] = {
 }  // namespace
 
 const size_t vgm::num_devices = sizeof(lib_devices_p) / sizeof(lib_devices_p[0]);
-const ArrayRef<DeviceConfig> vgm::lib_devices(lib_devices_p, num_devices);
+const DeviceConfigList vgm::lib_devices(lib_devices_p, num_devices);
 
 const DeviceConfig* DeviceConfig::linked_config() const {
   if (!has_linked()) return nullptr;

@@ -35,7 +35,6 @@ class Plugin : public InputPlugin {
 
   PlaybackStatus &playback_status() const { return *playback_status_; }
   SettingsManager &settings_manager() const { return *settings_container_; }
-  const PlayerBackendSettings &backend_settings() const { return settings_container_->backend(); }
   static SettingsManager *settings_hack;
 
  private:

@@ -10,9 +10,11 @@
 #include <QtWidgets/QListView>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QStyledItemDelegate>
+#include <QtWidgets/QTreeView>
 #include <bitset>
 
 #include "comm.h"
+#include "device-select.h"
 #include "libvgm-dev-meta.h"
 
 namespace audvgm {
@@ -54,17 +56,14 @@ class DeviceListModel : public QAbstractListModel {
   ChipListModel *chip_list_model() { return &chip_list_model_; }
   int num_devices() const { return settings_manager_.current().devices.size(); }
 
-  bool modify_chip_disable(int dev_idx, int chip, DisableMask disable, DisableMask enable);
-  bool modify_device_disable(int dev_idx, DisableMask disable, DisableMask enable) {
-    // FIXME: Fixed chip count
-    modify_chip_disable(dev_idx, 0, disable, enable);
-    return modify_chip_disable(dev_idx, 1, disable, enable);
-  }
+  bool modify_chip_disable(int dev_idx, int chip, bool enable, DisableMask mask);
+  bool modify_device_disable(int dev_idx, bool enable, DisableMask mask);
 
   int current_device() const { return current_device_; }
   void set_current_device(int i);
 
  private:
+  bool modify_helper(int dev_idx);
   ChipListModel chip_list_model_;
   SettingsManager &settings_manager_;
 
@@ -74,8 +73,7 @@ class DeviceListModel : public QAbstractListModel {
 
 DeviceListModel::DeviceListModel(PlaybackStatus &playback_status, SettingsManager &settings_manager,
                                  QObject *parent)
-    : QAbstractListModel(parent), chip_list_model_(*this),
-      settings_manager_(settings_manager) {
+    : QAbstractListModel(parent), chip_list_model_(*this), settings_manager_(settings_manager) {
   auto playback_status_hook = [](const PlaybackStatus &ps, void *ctx) {
     auto *self = static_cast<DeviceListModel *>(ctx);
     self->running_devices_.reset();
@@ -90,22 +88,34 @@ DeviceListModel::DeviceListModel(PlaybackStatus &playback_status, SettingsManage
       }
     }
   };
-  playback_status.hook(playback_status_hook, this);
+  playback_status.subscribe(playback_status_hook, this);
   connect(this, &QObject::destroyed, this,
-          [&]() { playback_status.unhook(playback_status_hook, this); });
+          [&]() { playback_status.unsubscribe(playback_status_hook, this); });
 }
 
-bool DeviceListModel::modify_chip_disable(int dev_idx, int chip, DisableMask disable,
-                                          DisableMask enable) {
+bool DeviceListModel::modify_chip_disable(int dev_idx, int chip, bool enable,
+                                          DeviceListModel::DisableMask mask) {
   if (dev_idx < 0 || dev_idx >= num_devices() || chip < 0 || chip > kNumChips) return false;
 
-  auto m = settings_manager_.mutate();
-  if (disable.any())
-    m.set_disable(dev_idx, chip, disable);
-  if (enable.any())
-    m.clear_disable(dev_idx, chip, enable);
-  m.commit();
+  {
+    auto m = settings_manager_.writer();
+    if (!m.set_disable(dev_idx, chip, !enable, mask)) return true;
+  }
+  return modify_helper(dev_idx);
+}
 
+bool DeviceListModel::modify_device_disable(int dev_idx, bool enable,
+                                            DeviceListModel::DisableMask mask) {
+  if (dev_idx < 0 || dev_idx >= num_devices()) return false;
+
+  {
+    auto m = settings_manager_.writer();
+    if (!m.set_disable(dev_idx, !enable, mask)) return true;
+  }
+  return modify_helper(dev_idx);
+}
+
+bool DeviceListModel::modify_helper(int dev_idx) {
   QVector<int> r({Qt::CheckStateRole});
   auto mi = createIndex(dev_idx, 0);
   dataChanged(mi, mi, r);
@@ -121,16 +131,8 @@ bool DeviceListModel::setData(const QModelIndex &index, const QVariant &value, i
   int row = index.row();
   if (row < 0 || row >= num_devices() || role != Qt::CheckStateRole) return false;
 
-  switch (value.value<Qt::CheckState>()) {
-    case Qt::Checked:
-      modify_device_disable(row, 0x00, 0xFF);
-      break;
-    case Qt::Unchecked:
-      modify_device_disable(row, 0xFF, 0x00);
-      break;
-    default:
-      break;
-  }
+  modify_device_disable(row, value.value<Qt::CheckState>() == Qt::Checked, DisableMask().set());
+
   return true;
 }
 
@@ -192,7 +194,8 @@ QVariant DeviceListModel::ChipListModel::data(const QModelIndex &index, int role
       return QVariant(QString(N_("Chip %1")).arg(row + 1));
     case Qt::CheckStateRole: {
       const auto &store = device_list_.settings_manager_.current().devices[current_device];
-      Qt::CheckState cs = Qt::PartiallyChecked;;
+      Qt::CheckState cs = Qt::PartiallyChecked;
+
       if (store.chips[row].disable.none()) {
         cs = Qt::Checked;
       } else if (store.chips[row].disable.all()) {
@@ -215,13 +218,8 @@ bool DeviceListModel::ChipListModel::setData(const QModelIndex &index, const QVa
   int current_device = device_list_.current_device_;
   if (current_device < 0 || current_device > device_list_.num_devices()) return false;
 
-  auto cs = value.value<Qt::CheckState>();
-  if (cs == Qt::Checked) {
-    device_list_.modify_chip_disable(current_device, row, 0, 0xFF);
-  } else {
-    device_list_.modify_chip_disable(current_device, row, 0xFF, 0);
-  }
-
+  device_list_.modify_chip_disable(
+      current_device, row, value.value<Qt::CheckState>() == Qt::Checked, DisableMask().set());
 
   return true;
 }
@@ -238,7 +236,7 @@ int DeviceListModel::ChipListModel::rowCount(const QModelIndex &parent) const {
 Qt::ItemFlags DeviceListModel::ChipListModel::flags(const QModelIndex &index) const {
   int current_device = device_list_.current_device_;
   if (current_device >= 0 && current_device < device_list_.num_devices()) {
-    return  Qt::ItemIsUserCheckable | Qt::ItemIsEnabled;
+    return Qt::ItemIsUserCheckable | Qt::ItemIsEnabled;
   } else {
     return Qt::NoItemFlags;
   }
@@ -246,6 +244,8 @@ Qt::ItemFlags DeviceListModel::ChipListModel::flags(const QModelIndex &index) co
 
 class DeviceListViewItemDelegate : public QStyledItemDelegate {
  public:
+  explicit DeviceListViewItemDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
+
   void paint(QPainter *painter, const QStyleOptionViewItem &option,
              const QModelIndex &index) const override {
     QStyleOptionViewItem opt = option;
@@ -294,14 +294,14 @@ class DeviceListView : public QListView {
   void disable_selected_devices() {
     if (!device_list_model_) return;
     for (const auto &a : selectionModel()->selectedRows()) {
-      device_list_model_->modify_device_disable(a.row(), 0xFF, 0x00);
+      device_list_model_->modify_device_disable(a.row(), false, DeviceListModel::DisableMask().set());
     }
   }
 
   void enable_selected_devices() {
     if (!device_list_model_) return;
     for (const auto &a : selectionModel()->selectedRows()) {
-      device_list_model_->modify_device_disable(a.row(), 0x00, 0xFF);
+      device_list_model_->modify_device_disable(a.row(), true, DeviceListModel::DisableMask().set());
     }
   }
 
@@ -325,7 +325,8 @@ class ChipControlWidget : public QWidget {
 ChipControlWidget *ChipControlWidget::construct(PlaybackStatus &playback_status,
                                                 SettingsManager &settings_manager,
                                                 QWidget *parent) {
-  auto ptr = std::unique_ptr<ChipControlWidget>(new ChipControlWidget(playback_status, settings_manager));
+  auto ptr =
+      std::unique_ptr<ChipControlWidget>(new ChipControlWidget(playback_status, settings_manager));
   auto *self = ptr.get();
   auto *layout = audqt::make_hbox(self);
 
@@ -373,7 +374,18 @@ ChipControlWidget *ChipControlWidget::construct(PlaybackStatus &playback_status,
 
 void *construct_chip_control_widget(PlaybackStatus &playback_status,
                                     SettingsManager &settings_manager) {
-  return ChipControlWidget::construct(playback_status, settings_manager, nullptr);
+  auto *tree_view = new QTreeView();
+  tree_view->setItemDelegate(new DeviceListViewItemDelegate(tree_view));
+
+  auto *model = new vgmqt::DeviceTreeModel(settings_manager, playback_status);
+  auto *filter_model = new vgmqt::DeviceTreeFiltered();
+  filter_model->setSourceModel(model);
+
+  tree_view->setSortingEnabled(false);
+  tree_view->setMinimumHeight(800);
+  tree_view->setModel(filter_model);
+  return tree_view;
+  //return ChipControlWidget::construct(playback_status, settings_manager, nullptr);
 }
 
 }  // namespace audvgm
