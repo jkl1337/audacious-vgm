@@ -5,7 +5,7 @@
 
 #include "libvgm-int.h"
 
-namespace audvgm {
+namespace vgm {
 
 // extern Config config;
 

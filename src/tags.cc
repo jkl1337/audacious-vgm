@@ -12,11 +12,9 @@
 #include "internal.h"
 #include "plugin.h"
 
-namespace audvgm {
+namespace vgm {
 
-namespace {
-
-int get_track_length(const PlayerBase &player, int loop_count,
+static int get_track_length(const PlayerBase &player, int loop_count,
                      int_least32_t fade_length) {
   double total_time_ms =
       player.Tick2Second(player.GetTotalPlayTicks(loop_count)) * 1000.0;
@@ -27,7 +25,14 @@ int get_track_length(const PlayerBase &player, int loop_count,
   return std::clamp<double>(total_time_ms, 0, INT_MAX);
 }
 
-}  // namespace
+// don't accept signs, don't want to be affected by locale
+static int str_to_uint(const char *s) {
+  int val = 0;
+  for (; s && *s >= '0' && *s <= '9'; ++s) {
+    val = val * 10 + (*s - '0');
+  }
+  return val;
+}
 
 void TagHandler::get_tags(PlayerBase &player, Tuple &tuple) {
   struct MultiTag {
@@ -81,14 +86,27 @@ void TagHandler::get_tags(PlayerBase &player, Tuple &tuple) {
   }
 
   tuple.set_int(Tuple::Length, get_track_length(player, loop_count, fade_length));
+  if (aud_get_bool(VGM_CFGID, cfg::kGuessTrackNum)) {
+    int track_no = str_to_uint(tuple.get_str(Tuple::Basename));
+    if (track_no) {
+      tuple.set_int(Tuple::Track, track_no);
+    }
+  }
 }
 
-bool Plugin::read_tag(const char *, VFSFile &file, Tuple &tuple, Index<char> *) {
+bool Plugin::read_tag(const char *, VFSFile &file, Tuple &tuple, Index<char> *art) {
   FileHandler fh(file);
-  if (!fh.load(0)) return false;
+  if (!fh.load()) return false;
 
   TagHandler::get_tags(*fh.player(), tuple);
   return true;
+}
+
+bool Plugin::is_our_file(const char *filename, VFSFile &file) {
+  int val = file.fseek(-4, VFS_SEEK_END);
+
+  FileHandler fh(file);
+  return fh.probe_file() == FileHandler::kTypeVGM;
 }
 
 }  // namespace audvgm

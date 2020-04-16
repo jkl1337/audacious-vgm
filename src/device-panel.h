@@ -8,7 +8,7 @@
 #include <QtWidgets/QTreeView>
 #include <QtWidgets/QWidget>
 
-namespace audvgm {
+namespace vgm {
 
 class DevicePanel : QWidget {
 

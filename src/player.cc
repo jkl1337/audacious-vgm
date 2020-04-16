@@ -1,5 +1,7 @@
+#include <emu/EmuCores.h>
+#include <emu/SoundDevs.h>
+#include <emu/cores/2612intf.h>
 #include <libaudcore/runtime.h>
-#include <libaudcore/tuple.h>
 
 #include <cstring>
 #include <player/playerbase.hpp>
@@ -10,21 +12,16 @@
 #include "plugin.h"
 #include "tags.h"
 
-// FIXME: configuration
-#if 0
-typedef struct {
-    std::array<std::atomic_uint_least32_t, 2> mute_masks;
-} AudaciousVgmPlaybackSettings;
-
-extern AudaciousVgmPlaybackSettings audvgm_playback_settings;
-
-#endif
-
-namespace audvgm {
+namespace vgm {
 
 namespace {
 
+constexpr const int kNChannels = 2;
+constexpr const int kBufferSizeSamples = 4096;
+constexpr const int kRenderBlockSizeSamples = 1024;
+
 void dump_info(PlayerBase &player) {
+
   auto &vgm_player = static_cast<VGMPlayer &>(player);
 
   PLR_SONG_INFO song_info = {};
@@ -36,18 +33,22 @@ void dump_info(PlayerBase &player) {
   for (const auto &dev : dev_info_list) {
     int chip_id = dev.instance < 2 ? dev.instance : 0;
 
-    auto *chip_device = vgm_player.GetDevicePtr(dev.type, chip_id);
+    // FIXME: look into this.
+    UINT8 messed_up = dev.type == DEVID_RF5C68 ? 0x10 : dev.type;
+    auto *chip_device = vgm_player.GetDevicePtr(messed_up, chip_id);
     auto *base_dev = &chip_device->base;
 
     auto *dev_info = &base_dev->defInf;
     const auto *dev_def = dev_info->devDef;
 
+    const auto *dt = lib_devices.find(dev.type);
+
     printf(R"EOT(
 AccuChip!!: %s
 name: %s
 author: %s
-)EOT", vgm::accurate_chip_name(dev),
-           dev_def->name, dev_def->author);
+)EOT",
+           vgm::accurate_chip_name(dev), dev_def->name, dev_def->author);
 
     printf(R"EOT(srcSR: %u dstSR: %u linkDevCount: %u
 )EOT",
@@ -59,27 +60,17 @@ author: %s
 Type: 0x%x
 Instance: 0x%x
 Volume: %u
-Core: 0x%x
+Core: %s
 Clock: %u
 Params: 0x%x
 SR: %u
 
 
 )",
-           dev.id, dev.type, dev.instance, dev.volume, dev.core, dev.clock, dev.cParams,
+           dev.id, dev.type, dev.instance, dev.volume, dt->core_name(dev.core), dev.clock, dev.cParams,
            dev.smplRate);
     fflush(stdout);
   }
-}
-
-inline uint_fast32_t get_total_frames(const PlayerBase &player, uint_fast32_t sample_rate,
-                                      uint_fast32_t loop_count, uint_fast32_t fade_length) {
-  uint_fast64_t total_samples = player.Tick2Sample(player.GetTotalPlayTicks(loop_count));
-
-  if (player.GetLoopTicks()) {
-    total_samples += uint_fast64_t{fade_length} * sample_rate / 1000;
-  }
-  return std::min(total_samples, uint_fast64_t{UINT32_MAX});
 }
 
 struct Frame {
@@ -141,162 +132,250 @@ void process_frames(BufT *out, PosT remaining_frames, PosT fade_frames, CntT num
   }
 }
 
-}  // namespace
+class PlaybackHandler {
+ public:
+  explicit PlaybackHandler(PlayerBase &backend_player, SettingsManager &settings_manager,
+                        PlaybackStatus &playback_status,
+                        DeviceConfigList info_list = vgm::lib_devices)
+      : backend_(backend_player),
+        settings_manager_(settings_manager),
+        playback_status_(playback_status),
+        info_list_(info_list),
+        sample_rate_(std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kSampleRate), 0, UINT32_MAX)),
+        loop_count_(std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kLoopCount), 0, UINT32_MAX)),
+        fade_length_(std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kFadeLength), 0, UINT32_MAX)),
+        gain_256_(256),
+        surround_(false),
+        n_frames_(0) {
+    setup_vgm_player();
+    init_chips();
+    init_settings();
+    init_device_options();
 
-bool Plugin::play(const char *, VFSFile &file) {
-  static constexpr const int kNChannels = 2;
-  static constexpr const int kBufferSize = 4096;
+    backend_.SetSampleRate(sample_rate_);
+    backend_.Start();
 
-  uint_fast32_t sample_rate =
-      std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kSampleRate), 0, UINT32_MAX);
-  uint_fast32_t loop_count =
-      std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kLoopCount), 0, UINT32_MAX);
-  uint_fast32_t fade_length =
-      std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kFadeLength), 0, UINT32_MAX);
+    handle_loaded_device_info();
 
-  FileHandler fh(file);
-  if (!fh.load(sample_rate)) return false;
+    render_buffer_.resize(kBufferSizeSamples);
+    output_buffer_.resize(kBufferSizeSamples * kNChannels);
+    total_frames_ = calc_total_frames();
+    fade_frames_ = calc_fade_frames();
+    gap_frames_ = calc_gap_frames();
+    frame_position_ = 0;
+  }
 
-  PlayerBase &driver = *fh.player();
+  ~PlaybackHandler() { playback_status_.set_device_info(std::vector<PLR_DEV_INFO>()); }
 
-  VGMPlayer *vgm_driver = fh.vgm_player();
-  if (vgm_driver) {
+  void seek(int seek_value) {
+    uint32_t new_pos = static_cast<uint_fast64_t>(seek_value) * sample_rate_ / 1000;
+    backend_.Seek(PLAYPOS_SAMPLE, new_pos);
+    frame_position_ = new_pos;
+  }
+
+  bool fill_buffer() {
+    int n_frames = 0;
+    n_frames_ = n_frames;
+
+    if (frame_position_ < total_frames_) {
+      uint_fast32_t remaining_frames = total_frames_ - frame_position_;
+      n_frames = std::min(render_buffer_.size(), remaining_frames);
+
+      std::memset(render_buffer_.data(), 0, render_buffer_.size() * sizeof render_buffer_[0]);
+
+      for (int i = 0; i < n_frames;) {
+        update_settings();
+        int n_block = std::min(kRenderBlockSizeSamples, n_frames - i);
+        n_block = backend_.Render(n_block, &render_buffer_[i]);
+
+        process_frames(&output_buffer_[i * 2], total_frames_ - frame_position_, fade_frames_,
+                       n_block, &render_buffer_[i], gain_256_, surround_);
+        frame_position_ += n_block;
+        i += n_block;
+      }
+    } else if (frame_position_ - total_frames_ < gap_frames_) {
+      n_frames = std::min(output_buffer_.size() / kNChannels,
+                          gap_frames_ - (frame_position_ - total_frames_));
+      std::memset(output_buffer_.data(), 0, n_frames * kNChannels * sizeof output_buffer_[0]);
+      frame_position_ += n_frames;
+    } else {
+      return false;
+    }
+    n_frames_ = n_frames;
+    return true;
+  }
+  const void *output_ptr() const { return static_cast<const void *>(output_buffer_.data()); }
+  int output_len() const { return n_frames_ * kNChannels * int{sizeof output_buffer_[0]}; }
+
+  uint_fast32_t calc_gap_frames() const {
+    bool is_looping = backend_.GetLoopTicks();
+    uint_fast32_t gap_length = std::clamp<long>(
+        aud_get_int(VGM_CFGID, is_looping ? cfg::kGapLooping : cfg::kGapNonLooping), 0, UINT32_MAX);
+    return std::min(uint_fast64_t{gap_length} * sample_rate_ / 1000, uint_fast64_t{UINT32_MAX});
+  }
+
+  uint_fast32_t calc_fade_frames() const {
+    if (!is_looping()) return 0;
+    return std::min(uint_fast64_t{fade_length_} * sample_rate_ / 1000, uint_fast64_t{UINT32_MAX});
+  }
+
+  uint_fast32_t calc_total_frames() const {
+    uint_fast64_t total_samples = backend_.Tick2Sample(backend_.GetTotalPlayTicks(loop_count_));
+
+    if (backend_.GetLoopTicks()) {
+      total_samples += uint_fast64_t{fade_length_} * sample_rate_ / 1000;
+    }
+    return std::min(total_samples, uint_fast64_t{UINT32_MAX});
+  }
+
+  bool is_looping() const { return backend_.GetLoopTicks(); }
+  uint_fast32_t sample_rate() const { return sample_rate_; }
+
+ private:
+  void setup_vgm_player() {
+    if (backend_.GetPlayerType() != FCC_VGM) return;
+    auto &vgm_player = static_cast<VGMPlayer &>(backend_);
+
     VGM_PLAY_OPTIONS play_opts = {
         .playbackHz = static_cast<UINT32>(std::min(aud_get_int(VGM_CFGID, cfg::kPlaybackRate), 0)),
         .hardStopOld = aud_get_bool(VGM_CFGID, cfg::kHardStopOld)};
-    vgm_driver->SetPlayerOptions(play_opts);
+    vgm_player.SetPlayerOptions(play_opts);
   }
 
-  Tuple tuple = get_playback_tuple();
-  TagHandler::get_tags(driver, tuple);
-  set_playback_tuple(tuple.ref());
+  void init_chips() {
+    std::vector<PLR_DEV_INFO> dev_info_list;
+    backend_.GetSongDeviceInfo(dev_info_list);
 
-  // FIXME: Break out
-
-  int gain_256 = 0;
-  bool surround = false;
-
-  {
-    auto settings_ctx = settings_manager().read(true).value();
-
-    gain_256 = std::clamp<int>(settings_ctx->gain * 256.0, 0, 1024);
-    surround = settings_ctx->surround;
-  }
-
-  struct SongDevice {
-    int idx;
-    uint32_t type;
-    uint8_t instance;
-    const vgm::DeviceConfig &dev_info;
-    SongDevice(int idx, uint32_t type, uint8_t instance, const vgm::DeviceConfig &dev_info)
-        : idx(idx), type(type), instance(instance), dev_info(dev_info) {}
-  };
-
-  std::vector<PLR_DEV_INFO> dev_info_list;
-  driver.GetSongDeviceInfo(dev_info_list);
-
-  std::vector<SongDevice> devices;
-  // FIXME: break out
-  for (const auto &d : dev_info_list) {
-    int lib_id = 0; // bug in library
-    for (int idx = 0; idx < vgm::lib_devices.size(); ++idx) {
-      const auto &di = vgm::lib_devices[idx];
-      if (d.type == di.devid) {
-        devices.emplace_back(idx, d.type, d.instance, di);
-      }
+    chips_.clear();
+    chips_.reserve(dev_info_list.size());
+    for (const auto &d : dev_info_list) {
+      int dev_idx = info_list_.find_index(d.type);
+      if (dev_idx < 0) continue;
+      chips_.push_back({dev_idx, d.instance, d.type});
     }
+    mute_opts_.resize(chips_.size());
   }
 
-  {
-    auto settings_ctx = settings_manager().read(true).value();
-
-    for (const auto &d : devices) {
-      PLR_DEV_OPTS opts{};
-      driver.GetDeviceOptions(PLR_DEV_ID(d.type, d.instance), opts);
-      settings_ctx.load_dev_opts(d.idx, d.instance, opts);
-      driver.SetDeviceOptions(PLR_DEV_ID(d.type, d.instance), opts);
-    }
-  }
-  driver.SetSampleRate(sample_rate);
-  driver.Start();
-
-  // GetSongDeviceInfo has distinct function depending on whether driver is "PLAYING", ie after
-  // start has been called.
-  driver.GetSongDeviceInfo(dev_info_list);
-  playback_status_->set_device_info(std::move(dev_info_list));
-
-  dump_info(driver);
-
-  std::vector<WAVE_32BS> render_buffer(kBufferSize);
-  std::vector<int16_t> output_buffer(kBufferSize * kNChannels);
-
-  uint_fast32_t total_frames = get_total_frames(driver, sample_rate, loop_count, fade_length);
-  uint_fast32_t frame_position = 0;
-
-  bool is_looping = driver.GetLoopTicks();
-
-  uint_fast32_t gap_length = std::clamp<long>(
-      aud_get_int(VGM_CFGID, is_looping ? cfg::kGapLooping : cfg::kGapNonLooping), 0, UINT32_MAX);
-  uint_fast32_t gap_frames =
-      std::min(uint_fast64_t{gap_length} * sample_rate / 1000, uint_fast64_t{UINT32_MAX});
-
-  uint_fast32_t fade_frames = 0;
-  if (is_looping) {
-    fade_frames =
-        std::min(uint_fast64_t{fade_length} * sample_rate / 1000, uint_fast64_t{UINT32_MAX});
+  void init_settings() {
+    auto settings_ctx = settings_manager_.read_always();
+    gain_256_ = std::clamp<int>(settings_ctx->gain * 256.0, 0, 1024);
+    surround_ = settings_ctx->surround;
   }
 
-  open_audio(FMT_S16_NE, sample_rate, 2);
+  void init_device_options() {
+    std::vector<PLR_DEV_OPTS> dev_opts(chips_.size());
 
-  while (!check_stop()) {
-    int seek_value = check_seek();
-    if (seek_value >= 0) {
-      uint32_t new_pos = static_cast<uint_fast64_t>(seek_value) * sample_rate / 1000;
-      driver.Seek(PLAYPOS_SAMPLE, new_pos);
-      frame_position = new_pos;
+    for (int i = 0; i < chips_.size(); ++i) {
+      const auto &c = chips_[i];
+      backend_.GetDeviceOptions(PLR_DEV_ID(c.vgm_type, c.instance), dev_opts[i]);
     }
 
     {
-      auto settings_ctx = settings_manager().read();
-      if (settings_ctx.has_value()) {
-        const auto &settings = settings_ctx.value();
+      auto settings_ctx = settings_manager_.read_always();
+      settings_ctx.load_dev_opts(chips_, dev_opts);
+      settings_ctx.load_mute_opts(chips_, mute_opts_);
+      // FIXME: initial panning options
+    }
 
-        for (const auto &d : devices) {
-          PLR_MUTE_OPTS opts{};
-          settings.load_mute_opts(d.idx, d.instance, opts);
-          driver.SetDeviceMuting(PLR_DEV_ID(d.type, d.instance), opts);
-        }
-        gain_256 = std::clamp<int>(settings->gain * 256.0, 0, 1024);
-        surround = settings->surround;
+    for (int i = 0; i < chips_.size(); ++i) {
+      const auto &c = chips_[i];
+      dev_opts[i].muteOpts = mute_opts_[i];
+      if (c.vgm_type == DEVID_YM2612) {
+        auto &dopt = dev_opts[i];
+        dopt.emuCore = FCC_NUKE;
+        dopt.coreOpts |= OPT_YM2612_TYPE_OPN2C_ASIC;
       }
+
+      backend_.SetDeviceOptions(PLR_DEV_ID(info_list_[c.dev_idx].devid, c.instance),
+                                dev_opts[i]);
     }
-
-    int n_frames = 0;
-    if (frame_position < total_frames) {
-
-      uint_fast32_t remaining_frames = total_frames - frame_position;
-      n_frames = std::min(render_buffer.size(), remaining_frames);
-
-      std::memset(render_buffer.data(), 0, render_buffer.size() * sizeof render_buffer[0]);
-      n_frames = driver.Render(n_frames, render_buffer.data());
-
-      process_frames(output_buffer.data(), total_frames - frame_position, fade_frames, n_frames,
-                     render_buffer.data(), gain_256, surround);
-    } else if (frame_position - total_frames < gap_frames) {
-      n_frames =
-          std::min(output_buffer.size() / kNChannels, gap_frames - (frame_position - total_frames));
-      std::memset(output_buffer.data(), 0, n_frames * kNChannels * sizeof output_buffer[0]);
-    } else {
-      break;
-    }
-
-    write_audio(output_buffer.data(),
-                n_frames * kNChannels * int{sizeof(decltype(output_buffer)::value_type)});
-
-    frame_position += n_frames;
   }
-  playback_status_->set_device_info(std::vector<PLR_DEV_INFO>());
+
+  void handle_loaded_device_info() {
+    std::vector<PLR_DEV_INFO> dev_info_list;
+    backend_.GetSongDeviceInfo(dev_info_list);
+
+    chips_pannable_.clear();
+    for (const auto &d : dev_info_list) {
+      int dev_idx = info_list_.find_index(d.type);
+      if (dev_idx < 0) continue;
+      if (info_list_[dev_idx].has_panning(d.core))
+        chips_pannable_.push_back({dev_idx, d.instance, d.type});
+    }
+
+    playback_status_.set_device_info(std::move(dev_info_list));
+    dump_info(backend_);
+  }
+
+  void update_settings() {
+    {
+      auto settings_ctx = settings_manager_.read();
+      if (!settings_ctx) return;
+      const auto &reader = settings_ctx.value();
+      reader.load_mute_opts(chips_, mute_opts_);
+
+      for (const auto &c : chips_pannable_) {
+        const auto &pan = reader.get_panning_opt(c);
+        backend_.SetDevicePanning(PLR_DEV_ID(c.vgm_type, c.instance), pan.data(), pan.size());
+      }
+
+      gain_256_ = std::clamp<int>(reader->gain * 256.0, 0, 1024);
+      surround_ = reader->surround;
+    }
+
+    auto it = mute_opts_.begin();
+    for (const auto &c : chips_) {
+      backend_.SetDeviceMuting(PLR_DEV_ID(c.vgm_type, c.instance), *it++);
+    }
+  }
+
+  PlayerBase &backend_;
+  std::vector<WAVE_32BS> render_buffer_;
+  std::vector<int16_t> output_buffer_;
+  int n_frames_;
+  uint_fast32_t frame_position_;
+  uint_fast32_t total_frames_;
+  uint_fast32_t fade_frames_;
+  int gain_256_;
+  bool surround_;
+  uint_fast32_t gap_frames_;
+
+  uint_fast32_t sample_rate_;
+  uint_fast32_t loop_count_;
+  uint_fast32_t fade_length_;
+
+  SettingsManager &settings_manager_;
+  std::vector<InstanceId> chips_, chips_pannable_;
+  std::vector<PLR_MUTE_OPTS> mute_opts_;
+
+  PlaybackStatus &playback_status_;
+  DeviceConfigList info_list_;
+};
+
+}  // namespace
+
+bool Plugin::play(const char *, VFSFile &file) {
+  FileHandler fh(file);
+  if (!fh.load()) return false;
+
+  PlaybackHandler handler(*fh.player(), settings_manager(), playback_status());
+
+  Tuple t = get_playback_tuple();
+  TagHandler::get_tags(*fh.player(), t);
+  set_playback_tuple(std::move(t));
+
+  open_audio(FMT_S16_NE, handler.sample_rate(), 2);
+
+  while (!check_stop()) {
+    int seek_value = check_seek();
+    if (seek_value >= 0) handler.seek(seek_value);
+
+    if (!handler.fill_buffer()) break;
+
+    write_audio(handler.output_ptr(), handler.output_len());
+  }
+
   return true;
 }
 
-}  // namespace audvgm
+}  // namespace vgm

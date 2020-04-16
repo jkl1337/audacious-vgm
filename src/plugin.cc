@@ -12,7 +12,7 @@
 #include "config.h"
 #include "prefs.h"
 
-namespace audvgm {
+namespace vgm {
 
 void vgm_configure();
 
@@ -27,7 +27,7 @@ bool Plugin::init() {
   settings_container_ = new SettingsManager(ps);
   settings_hack = settings_container_;
 
-  aud_plugin_menu_add(AudMenuID::Main, audvgm::vgm_configure, _("VGM Configure..."),
+  aud_plugin_menu_add(AudMenuID::Main, vgm::vgm_configure, _("VGM Configure..."),
                       nullptr);
 
   return true;
@@ -70,8 +70,8 @@ inline int playback_rate_preset(int r) {
   }
 }
 
-ArrayRef<ComboItem> playback_rate_combo_fill() {
-  ArrayRef<ComboItem> items(playback_rate_items);
+::ArrayRef<ComboItem> playback_rate_combo_fill() {
+  ::ArrayRef<ComboItem> items(playback_rate_items);
   playback_rate_item_selected =
       playback_rate_preset(aud_get_int(VGM_CFGID, cfg::kPlaybackRate));
   if (playback_rate_item_selected != -1) items.len = 3;
@@ -132,8 +132,10 @@ const PreferencesWidget length_widgets[] = {
 
 static void test_callback() {
   auto gain = aud_get_double(VGM_CFGID, cfg::kGain);
+  auto surround = aud_get_bool(VGM_CFGID, cfg::kSurround);
   auto m = Plugin::settings_hack->writer();
   m.set_gain(gain);
+  m.set_surround(surround);
 }
 const PreferencesWidget playback_widgets[] = {
     WidgetLabel(N_("<b>Playback Quality</b>")),
@@ -148,7 +150,7 @@ const PreferencesWidget playback_widgets[] = {
                {0, 96000, 50, N_("Hz")}),
     WidgetLabel(N_("<b>Audio Post Process</b>")),
     WidgetSpin(N_("Gain"), WidgetFloat(VGM_CFGID, cfg::kGain, test_callback), {0.0, 4.0, 0.005}),
-    WidgetCheck(N_("\"Surround\" Sound"), WidgetBool(VGM_CFGID, cfg::kSurround)),
+    WidgetCheck(N_("\"Surround\" Sound"), WidgetBool(VGM_CFGID, cfg::kSurround, test_callback)),
     WidgetCheck(N_("Double SSG volume"), WidgetBool(VGM_CFGID, cfg::kSSG2XVol)),
 };
 
@@ -163,7 +165,7 @@ const PreferencesWidget general_widgets[] = {
 
 
 const PreferencesWidget chip_widgets[] = {
-    WidgetCustomQt(audvgm::populate_chip_prefs)
+    WidgetCustomQt(vgm::populate_chip_prefs)
 };
 
 const NotebookTab notebook_tabs[] = {{N_("General"), {general_widgets}},
@@ -177,13 +179,13 @@ const PluginPreferences Plugin::prefs = {widgets};
 
 }  // namespace audvgm
 
-LIBAUDCORE_PUBLIC audvgm::Plugin aud_plugin_instance;
+LIBAUDCORE_PUBLIC vgm::Plugin aud_plugin_instance;
 
-static void *audvgm::populate_chip_prefs() {
+static void *vgm::populate_chip_prefs() {
   auto plugin = static_cast<Plugin*>(&aud_plugin_instance);
   return construct_chip_control_widget(plugin->playback_status(), plugin->settings_manager());
 }
 
-void audvgm::vgm_configure() {
+void vgm::vgm_configure() {
   audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance));
 }

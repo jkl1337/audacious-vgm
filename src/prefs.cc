@@ -5,21 +5,25 @@
 #include <libaudqt/libaudqt.h>
 
 #include <QtCore/QAbstractListModel>
+#include <QtGui/QMouseEvent>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QRadioButton>
+#include <QtWidgets/QShortcut>
 #include <QtWidgets/QStyledItemDelegate>
 #include <QtWidgets/QTreeView>
 #include <bitset>
+#include <memory>
 
 #include "channel-select.h"
 #include "comm.h"
 #include "device-select.h"
 #include "libvgm-dev-meta.h"
 
-namespace audvgm {
+namespace vgm {
 
 constexpr int kNumChips = 2;
 constexpr int kMaxNumDevices = 41;
@@ -244,6 +248,50 @@ Qt::ItemFlags DeviceListModel::ChipListModel::flags(const QModelIndex &index) co
   }
 }
 
+class SliderDelegate : public QStyledItemDelegate {
+  QSize sizeHint_;
+
+ public:
+  explicit SliderDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {
+    std::unique_ptr<QSlider> slider(new QSlider(Qt::Horizontal));
+    slider->setRange(-256, 256);
+    slider->setTickInterval(64);
+    slider->setTickPosition(QSlider::TicksBelow);
+    sizeHint_ = slider->sizeHint();
+  }
+
+  bool eventFilter(QObject *object, QEvent *event) override {
+    if (event->type() != QEvent::MouseButtonDblClick) return false;
+    auto *mouse_event = static_cast<QMouseEvent *>(event);
+    if (mouse_event->button() != Qt::LeftButton) return false;
+    auto *slider = qobject_cast<QSlider *>(object);
+    if (!slider) return false;
+    slider->setSliderPosition(0);
+    mouse_event->accept();
+    return true;
+  }
+
+  QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                        const QModelIndex &index) const override {
+    auto *slider = new QSlider(Qt::Horizontal, parent);
+    slider->setRange(-256, 256);
+    slider->setTickInterval(64);
+    slider->setTickPosition(QSlider::TicksBelow);
+
+    connect(slider, &QSlider::valueChanged, this,
+            [=](int) { const_cast<SliderDelegate *>(this)->commitData(slider); });
+
+    return slider;
+  }
+
+  void paint(QPainter *painter, const QStyleOptionViewItem &option,
+             const QModelIndex &index) const override {}
+
+  QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+    return sizeHint_;
+  }
+};
+
 class DeviceListViewItemDelegate : public QStyledItemDelegate {
  public:
   explicit DeviceListViewItemDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {}
@@ -257,6 +305,72 @@ class DeviceListViewItemDelegate : public QStyledItemDelegate {
     opt.font.setBold(data.toBool());
     QStyledItemDelegate::paint(painter, opt, index);
   }
+};
+
+class CoresWidget : public QWidget {
+  Q_OBJECT
+
+ public:
+  explicit CoresWidget(QWidget *parent = nullptr) : QWidget(parent) {
+    auto *vbox = new QVBoxLayout(this);
+
+    int idx = 0;
+    for (auto &button : buttons_) {
+      button = new QRadioButton();
+      vbox->addWidget(button);
+      button->setVisible(false);
+
+      auto toggle_handler = [idx, this](bool checked) {
+        if (!checked) return;
+        core_ = cores_[idx];
+        coreChanged(core_);
+      };
+      connect(button, &QAbstractButton::toggled, this, toggle_handler);
+      ++idx;
+    }
+
+    auto fm = buttons_[0]->fontMetrics();
+    int max_label_width = 0;
+
+    for (const auto &d : vgm::lib_devices) {
+      for (const auto &c : d.cores) {
+        if (!c.label[0]) continue;
+        int width = fm.horizontalAdvance(c.label);
+        if (width > max_label_width) max_label_width = width;
+      }
+    }
+    setMinimumWidth(buttons_[0]->minimumSizeHint().width() + max_label_width);
+    vbox->addStretch(1);
+  }
+
+  void set_device(const vgm::DeviceConfig &config, int select) {
+    int i = 0;
+    for (const auto &c : config.cores) {
+      auto *const button = buttons_[i];
+      button->setText(c.label[0] ? c.label : core_name(c.core));
+      button->setVisible(true);
+      cores_[i] = c.core;
+      if (i == select) {
+        button->setChecked(true);
+      }
+      ++i;
+    }
+    for (; i < buttons_.size(); ++i) {
+      buttons_[i]->setVisible(false);
+      cores_[i] = 0;
+    }
+  }
+
+  Q_PROPERTY(unsigned long coreSelected MEMBER core_ NOTIFY coreChanged)
+
+ signals:
+  void coreChanged(unsigned long);
+
+ private:
+  std::array<QRadioButton *, 3> buttons_;
+  std::array<uint32_t, 3> cores_;
+
+  unsigned long core_;
 };
 
 class ChipListView : public QListView {
@@ -296,14 +410,16 @@ class DeviceListView : public QListView {
   void disable_selected_devices() {
     if (!device_list_model_) return;
     for (const auto &a : selectionModel()->selectedRows()) {
-      device_list_model_->modify_device_disable(a.row(), false, DeviceListModel::DisableMask().set());
+      device_list_model_->modify_device_disable(a.row(), false,
+                                                DeviceListModel::DisableMask().set());
     }
   }
 
   void enable_selected_devices() {
     if (!device_list_model_) return;
     for (const auto &a : selectionModel()->selectedRows()) {
-      device_list_model_->modify_device_disable(a.row(), true, DeviceListModel::DisableMask().set());
+      device_list_model_->modify_device_disable(a.row(), true,
+                                                DeviceListModel::DisableMask().set());
     }
   }
 
@@ -314,24 +430,17 @@ class DeviceListView : public QListView {
 
 class ChipControlWidget : public QWidget {
  public:
-  static ChipControlWidget *construct(PlaybackStatus &playback_status,
-                                      SettingsManager &settings_manager, QWidget *parent);
+  explicit ChipControlWidget(PlaybackStatus &playback_status, SettingsManager &settings_manager,
+                             QWidget *parent = nullptr);
 
  private:
-  explicit ChipControlWidget(PlaybackStatus &playback_status, SettingsManager &settings_manager)
-      : device_list_(playback_status, settings_manager, nullptr) {}
-
   DeviceListModel device_list_;
 };
 
-ChipControlWidget *ChipControlWidget::construct(PlaybackStatus &playback_status,
-                                                SettingsManager &settings_manager,
-                                                QWidget *parent) {
-  auto ptr =
-      std::unique_ptr<ChipControlWidget>(new ChipControlWidget(playback_status, settings_manager));
-  auto *self = ptr.get();
-  auto *layout = audqt::make_hbox(self);
-
+ChipControlWidget::ChipControlWidget(PlaybackStatus &playback_status,
+                                     SettingsManager &settings_manager, QWidget *parent)
+    : QWidget(parent), device_list_(playback_status, settings_manager, nullptr) {
+  auto *layout = new QHBoxLayout(this);
   auto *vbox = new QVBoxLayout;
   layout->addLayout(vbox);
 
@@ -352,10 +461,10 @@ ChipControlWidget *ChipControlWidget::construct(PlaybackStatus &playback_status,
   auto *info_label = new QLabel("Potter");
   layout->addWidget(info_label, 1);
 
-  device_list_view->set_device_list_model(&self->device_list_);
+  device_list_view->set_device_list_model(&device_list_);
 
   auto *clv = chip_list_view;
-  clv->setModel(self->device_list_.chip_list_model());
+  clv->setModel(device_list_.chip_list_model());
   clv->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   clv->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   clv->setFixedSize(
@@ -368,10 +477,6 @@ ChipControlWidget *ChipControlWidget::construct(PlaybackStatus &playback_status,
 
   QObject::connect(button_dev_dis, &QPushButton::clicked, device_list_view,
                    [device_list_view]() { device_list_view->disable_selected_devices(); });
-
-  auto *ret = ptr.release();
-  if (parent) ret->setParent(parent);
-  return ret;
 }
 
 void *construct_chip_control_widget(PlaybackStatus &playback_status,
@@ -391,18 +496,52 @@ void *construct_chip_control_widget(PlaybackStatus &playback_status,
   tree_view->setSortingEnabled(false);
   tree_view->setMinimumHeight(800);
   tree_view->setModel(model);
-  //tree_view->expandRecursively(QModelIndex(), 1);
+  // tree_view->expandRecursively(QModelIndex(), 1);
+  tree_view->setUniformRowHeights(true);
   tree_view->header()->setStretchLastSection(false);
   tree_view->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-  //tree_view->resizeColumnToContents(0);
+  // tree_view->resizeColumnToContents(0);
 
   auto *chan_view = new QTreeView();
+  chan_view->setItemDelegateForColumn(3, new SliderDelegate(chan_view));
+
   layout->addWidget(chan_view, 1);
 
   auto *chan_model = new vgmqt::ChannelTreeModel(settings_manager, &playback_status, chan_view);
   chan_view->setModel(chan_model);
+
+  QObject::connect(chan_model, &QAbstractItemModel::modelReset, chan_view,
+                   [chan_model, chan_view]() {
+                     int rc = chan_model->rowCount(QModelIndex());
+
+                     for (int r = 0; r < rc; ++r) {
+                       auto p = chan_model->index(r, 0, QModelIndex());
+                       auto c = chan_model->index(0, 3, p);
+
+                       if (!(chan_model->flags(c) & Qt::ItemIsEditable)) continue;
+
+                       for (int i = 0; c.isValid(); c = chan_model->index(++i, 3, p)) {
+                         chan_view->openPersistentEditor(c);
+                       }
+                     }
+                   });
+  chan_view->header()->setStretchLastSection(false);
+  chan_view->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+  chan_view->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+  chan_view->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+
+  auto *cores = new CoresWidget();
+  cores->set_device(lib_devices[2], 1);
+  layout->addWidget(cores);
+
+  auto *shortcut = new QShortcut(QKeySequence("Alt+1"), widget);
+  QObject::connect(shortcut, &QShortcut::activated, widget, [](){
+    printf("MOTHER\n");
+  });
   return widget;
-  //return ChipControlWidget::construct(playback_status, settings_manager, nullptr);
+  // return ChipControlWidget::construct(playback_status, settings_manager, nullptr);
 }
 
-}  // namespace audvgm
+}  // namespace vgm
+
+#include "prefs.moc"

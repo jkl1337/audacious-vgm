@@ -1,58 +1,51 @@
-//
-// Created by luebsj on 4/9/20.
-//
-
 #include "comm.h"
 
-#include <libaudcore/hook.h>
 
-using namespace audvgm;
+using namespace vgm;
 
-constexpr static const char *kUpdateEvent = "audvgm player update";
+void SettingsManager::ReadContext::load_mute_opts(const std::vector<InstanceId> &devs,
+                                                  std::vector<PLR_MUTE_OPTS> &opts) const {
+  auto output = opts.begin();
 
-PlaybackStatus::~PlaybackStatus() {
-  std::lock_guard lock(hook_lock_);
-  if (!hooks_.empty()) hook_dissociate(kUpdateEvent, hook_cb, this);
+  bool solo = std::any_of(devs.begin(), devs.end(), [=](const InstanceId &i){
+    return settings_.chip(i).channel_solo.any();
+  });
+  for (const auto &i : devs) {
+    const auto &dev_info = vgm::lib_devices[i.dev_idx];
+    const auto &ccb = settings_.chip(i);
+
+    output->disable = ccb.disable.to_ulong();
+
+    PlayerSettings::ChannelMask mute_mask = ccb.channel_mute;
+    if (solo) {
+      mute_mask |= ~ccb.channel_solo;
+    }
+    uint_fast32_t mute_bits = mute_mask.to_ulong();
+
+    if (dev_info.has_linked()) {
+      unsigned shift = dev_info.num_channels();
+      uint_fast32_t mask = (1 << shift) - 1;
+      output->chnMute[0] = mute_bits & mask;
+      output->chnMute[1] = (mute_bits & ~mask) >> shift;
+    } else {
+      output->chnMute[0] = mute_bits;
+      output->chnMute[1] = 0;
+    }
+    ++output;
+  }
 }
 
-void PlaybackStatus::set_device_info(std::vector<PLR_DEV_INFO> &&dev_info_list) {
-  std::unique_lock lock(dev_info_lock_);
-  std::swap(dev_info_list_, dev_info_list);
-  lock.unlock();
-  event_queue(kUpdateEvent, this);
-}
+void SettingsManager::ReadContext::load_dev_opts(const std::vector<InstanceId> &devs,
+                                                 std::vector<PLR_DEV_OPTS> &opts) {
 
-std::vector<PLR_DEV_INFO> PlaybackStatus::get_device_info() const {
-  std::lock_guard lock(dev_info_lock_);
-  return dev_info_list_;
-}
+  auto output = opts.begin();
+  for (const auto &i : devs) {
+    const auto &dev_info = vgm::lib_devices[i.dev_idx];
+    const auto &dcb = settings_.device(i);
 
-void PlaybackStatus::subscribe(PlaybackStatus::NotifyFunc func, void *ctx) {
-  std::lock_guard lock(hook_lock_);
-  if (hooks_.empty()) hook_associate(kUpdateEvent, hook_cb, this);
-  hooks_.push_back(HookInfo{func, ctx});
-}
-
-void PlaybackStatus::unsubscribe(PlaybackStatus::NotifyFunc func, void *ctx) {
-  std::lock_guard lock(hook_lock_);
-  hooks_.erase(std::remove_if(hooks_.begin(), hooks_.end(),
-                              [=](const HookInfo &info) {
-                                return info.func == func && (ctx == info.ctx || !ctx);
-                              }),
-               hooks_.end());
-  if (hooks_.empty()) hook_dissociate(kUpdateEvent, hook_cb, this);
-}
-
-void PlaybackStatus::hook_cb(void *data, void *ctx) {
-  static_cast<PlaybackStatus *>(data)->call_hooks();
-}
-
-void PlaybackStatus::call_hooks() {
-  std::unique_lock lock(hook_lock_);
-  auto hooks = hooks_;
-  lock.unlock();
-  for (const auto &h : hooks) {
-    h.func(*this, h.ctx);
+    output->emuCore = dcb.core;
+    output->coreOpts = dcb.core_opts;
+    ++output;
   }
 }
 
@@ -60,7 +53,7 @@ template <typename T>
 bool SettingsManager::WriteContext::write_value(T &dest, const T &src) {
   if (src != dest) {
     dest = src;
-    flag_.clear(std::memory_order_relaxed);
+    changed_ = true;
     return true;
   }
   return false;
@@ -89,7 +82,7 @@ bool SettingsManager::WriteContext::store_in_range(T &dest, const T &src, const 
   if (src < lo || src > hi) return false;
   if (src != dest) {
     dest = src;
-    flag_.clear();
+    changed_ = true;
     return true;
   }
   return false;
@@ -97,6 +90,7 @@ bool SettingsManager::WriteContext::store_in_range(T &dest, const T &src, const 
 
 bool SettingsManager::WriteContext::set_mute(int dev_idx, int instance, bool level,
                                              PlayerSettings::ChannelMask mask) {
+  // FIXME: thinking maybe this should only mess with the "valid" bits
   return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
     PlayerSettings::ChannelMask apply;
     if (level) apply = apply.set();

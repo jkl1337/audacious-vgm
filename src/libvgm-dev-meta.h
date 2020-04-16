@@ -130,9 +130,9 @@ struct DeviceConfig {
 
   const DeviceConfig *linked_config() const { return linked.dev; }
 
-  bool has_panning() const {
-    for (const auto &core : cores) {
-      if (core.panning) return true;
+  bool has_panning(uint32_t core = 0) const {
+    for (const auto &c : cores) {
+      if (c.panning && (!core || c.core == core)) return true;
     }
     return false;
   }
@@ -166,11 +166,17 @@ class DeviceConfigList : public ArrayRef<DeviceConfig> {
  public:
   constexpr DeviceConfigList(const DeviceConfig *data, int len)
       : ArrayRef<DeviceConfig>(data, len) {}
-  int find_index(unsigned int devid) const {
+
+  const DeviceConfig *find(unsigned int devid) const {
     for (const auto *it = begin(); it != end(); ++it) {
-      if (it->devid == devid) return it - begin();
+      if (it->devid == devid) return it;
     }
-    return -1;
+    return nullptr;
+  }
+
+  int find_index(unsigned int devid) const {
+    const auto *d = find(devid);
+    return d ? d - begin() : -1;
   }
 };
 

@@ -30,11 +30,11 @@ pkg_search_module(audacious REQUIRED IMPORTED_TARGET audacious>=3.9)
 
 set(CMAKE_AUTOMOC ON)
 
-add_library(vgm MODULE src/vfsloader.cc src/gzfile.cc
+add_library(vgm MODULE src/types.h src/vfsloader.cc src/gzfile.cc
         src/libvgm-dev-meta.cpp src/plugin.cc src/plugin.h src/internal.cc
         src/internal.h src/player.cc
         src/config.h src/tags.cc src/tags.h src/config.cc src/prefs.h
-        src/prefs.cc src/comm.cc src/comm.h src/device-panel.cc src/device-panel.h src/i18n.h src/libvgm-int.cpp src/libvgm-int.h src/device-select.cc src/device-select.h src/channel-select.cc src/channel-select.h)
+        src/prefs.cc src/comm.cc src/comm.h src/device-panel.cc src/device-panel.h src/i18n.h src/libvgm-int.cpp src/libvgm-int.h src/device-select.cc src/device-select.h src/channel-select.cc src/channel-select.h src/aud-comm.cc)
 
 
 set_target_properties(vgm PROPERTIES PREFIX "")

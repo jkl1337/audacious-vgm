@@ -1,11 +1,11 @@
-#ifndef VGM__GZ_FILE_H_
-#define VGM__GZ_FILE_H_
+#ifndef VGM_GZ_FILE_H_
+#define VGM_GZ_FILE_H_
+
+#include <vector>
 
 #include <libaudcore/vfs.h>
 #include <zconf.h>
 #include <zlib.h>
-
-#include <vector>
 
 class GzFile {
  private:
@@ -30,7 +30,8 @@ class GzFile {
   bool open();
   void close();
   int64_t read(void *buffer, uint64_t n_bytes);
+  bool eof() const { return !zbuf_.avail_in && file_->feof(); }
   // bool seek(int64_t offset, unsigned whence);
 };
 
-#endif  // VGM__GZ_FILE_H_
+#endif  // VGM_GZ_FILE_H_

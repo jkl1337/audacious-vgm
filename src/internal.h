@@ -12,24 +12,30 @@ class VGMPlayer;
 
 extern "C" {
 typedef struct _data_loader DATA_LOADER;
-void DataLoader_Deinit(DATA_LOADER *loader);
 }
 
-namespace audvgm {
+namespace vgm {
 
 class FileHandler {
  public:
+  enum FileType {
+    kTypeNone = 0,
+    kTypeVGM,
+    kTypeDRO,
+    kTypeS98
+  };
   String path_;
 
-  bool load(int sample_rate = -1);
+  bool load();
 
   explicit FileHandler(VFSFile &fd);
 
   PlayerBase *player() const { return player_.get(); }
   VGMPlayer *vgm_player() const;
 
+  FileType probe_file() const;
  private:
-  std::unique_ptr<DATA_LOADER, std::function<void(DATA_LOADER*)>> loader_;
+  std::unique_ptr<DATA_LOADER, void(*)(DATA_LOADER*)> loader_;
   std::unique_ptr<PlayerBase> player_;
 };
 

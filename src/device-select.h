@@ -5,9 +5,10 @@
 #include <QtCore/QSortFilterProxyModel>
 #include <bitset>
 
+#include "types.h"
 #include "libvgm-dev-meta.h"
 
-namespace audvgm {
+namespace vgm {
 class SettingsManager;
 class PlaybackStatus;
 }
@@ -25,8 +26,8 @@ class DeviceTreeModel : public QAbstractItemModel {
  public:
   enum ItemDataRole { PlayingDeviceRole = Qt::UserRole };
 
-  explicit DeviceTreeModel(audvgm::SettingsManager& settings_manager,
-                           audvgm::PlaybackStatus& playback_status,
+  explicit DeviceTreeModel(vgm::SettingsManager& settings_manager,
+                           vgm::PlaybackStatus& playback_status,
                            QObject* parent = nullptr,
                            const vgm::DeviceConfigList& info_list = vgm::lib_devices);
   QModelIndex index(int row, int column, const QModelIndex& parent) const override;
@@ -39,7 +40,7 @@ class DeviceTreeModel : public QAbstractItemModel {
   QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
  private:
-  audvgm::SettingsManager& settings_manager_;
+  vgm::SettingsManager& settings_manager_;
   const vgm::DeviceConfigList &info_list_;
 
   void data_changed_helper(const QModelIndex& p, const QVector<int>& roles);

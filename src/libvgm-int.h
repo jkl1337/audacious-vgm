@@ -10,9 +10,10 @@
 #include <cstdint>
 #include <vector>
 
+#include "types.h"
 #include "libvgm-dev-meta.h"
 
-namespace audvgm {
+namespace vgm {
 
 template <class C, class T = typename C::value_type>
 struct DevInfoRange {
@@ -80,6 +81,8 @@ struct PlayerSettings {
   static PlayerSettings init_lib_defaults();
 
   DevInfoRange<std::vector<Device>> devices_with_meta() { return DevInfoRange(devices); }
+  const Chip& chip(const InstanceId &i) const { return devices[i.dev_idx].chips[i.instance]; }
+  const Device& device(const InstanceId &i) const { return devices[i.dev_idx]; }
 };
 
 }

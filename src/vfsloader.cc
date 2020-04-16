@@ -13,7 +13,7 @@
 
 namespace {
 
-using audvgm::log_err;
+using vgm::log_err;
 
 class VFSLoaderOps {
  public:
@@ -40,7 +40,7 @@ class VFSLoaderOps {
     if (!file_) return -1;
     return file_->ftell();
   }
-  virtual UINT8 eof() {
+  virtual UINT8 eof() const {
     if (!file_) return 1;
     return static_cast<UINT8>(file_->feof());
   }
@@ -67,6 +67,7 @@ class GZLoaderOps : public VFSLoaderOps {
     log_err("FIXME: VFSLoaderImpl unexpected seek() called from libvgm.");
     return -1;
   }
+  UINT8 eof() const override { return gz_file_.eof(); }
 
  private:
   GzFile gz_file_;
@@ -78,6 +79,7 @@ class VFSLoader {
   VFSLoader(const VFSLoaderOps &) = delete;
   VFSLoader &operator=(const VFSLoaderOps &) = delete;
 
+ private:
   static UINT8 s_open(void *context);
   static UINT32 s_read(void *context, UINT8 *buffer, UINT32 numBytes);
   static UINT8 s_seek(void *context, UINT32 offset, UINT8 whence);
@@ -86,21 +88,22 @@ class VFSLoader {
   static UINT32 s_length(void *context);
   static UINT8 s_eof(void *context);
 
- private:
   VFSFile &file_;
   std::unique_ptr<VFSLoaderOps> ops_;
   uint32_t bytes_total_;
+
+ public:
+  constexpr static const DATA_LOADER_CALLBACKS callbacks = {
+      0x56465346,  // "VFSF"
+      "VFS Loader", s_open, s_read, s_seek, s_close, s_tell, s_length, s_eof};
 };
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "hicpp-signed-bitwise"
-inline uint32_t readLE32(const unsigned char *data) {
+inline uint32_t unpack_le32(const unsigned char *data) {
   return data[0x03] << 24 | data[0x02] << 16 | data[0x01] << 8 | data[0x00] << 0;
 }
-#pragma clang diagnostic pop
 
 UINT8 VFSLoader::s_open(void *context) {
-  auto self = static_cast<VFSLoader *>(context);
+  auto *self = static_cast<VFSLoader *>(context);
 
   VFSFile &file = self->file_;
 
@@ -117,7 +120,7 @@ UINT8 VFSLoader::s_open(void *context) {
       return 1;
     }
 
-    self->bytes_total_ = readLE32(size_buffer);
+    self->bytes_total_ = unpack_le32(size_buffer);
     if (self->bytes_total_ < file.ftell() / 2) self->bytes_total_ = 0;
 
     if (file.fseek(0, VFS_SEEK_SET) < 0) {
@@ -141,57 +144,50 @@ UINT8 VFSLoader::s_open(void *context) {
 }
 
 UINT32 VFSLoader::s_read(void *context, UINT8 *buffer, UINT32 numBytes) {
-  auto self = static_cast<VFSLoader *>(context);
+  auto *self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return 0;
   return self->ops_->read(buffer, numBytes);
 }
 
 UINT8 VFSLoader::s_seek(void *context, UINT32 offset, UINT8 whence) {
-  auto self = static_cast<VFSLoader *>(context);
+  auto *self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return 1;
   return self->ops_->seek(offset, whence);
 }
 
 UINT8 VFSLoader::s_close(void *context) {
-  auto self = static_cast<VFSLoader *>(context);
+  auto *self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return 0;
   return self->ops_->close();
 }
 
 INT32 VFSLoader::s_tell(void *context) {
-  auto self = static_cast<VFSLoader *>(context);
+  auto *self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return -1;
   return self->ops_->tell();
 }
 
 UINT32 VFSLoader::s_length(void *context) {
-  auto self = static_cast<VFSLoader *>(context);
+  auto *self = static_cast<VFSLoader *>(context);
   return self->bytes_total_;
 }
 
 UINT8 VFSLoader::s_eof(void *context) {
-  auto self = static_cast<VFSLoader *>(context);
+  auto *self = static_cast<VFSLoader *>(context);
   if (!self->ops_) return 1;
   return self->ops_->eof();
 }
 
-const DATA_LOADER_CALLBACKS vfs_loader_callbacks = {
-    0x56465346,  // "VFSF"
-    "VFS Loader",       VFSLoader::s_open, VFSLoader::s_read,   VFSLoader::s_seek,
-    VFSLoader::s_close, VFSLoader::s_tell, VFSLoader::s_length, VFSLoader::s_eof};
-
 }  // namespace
 
-namespace audvgm {
+namespace vgm {
 
 DATA_LOADER *VFSLoader_Init(VFSFile &file) {
-  DATA_LOADER *data_loader;
-
-  data_loader = (DATA_LOADER *)calloc(1, sizeof(DATA_LOADER));
+  auto *data_loader = static_cast<DATA_LOADER *>(calloc(1, sizeof(DATA_LOADER)));
   if (!data_loader) return nullptr;
 
-  DataLoader_Setup(data_loader, &vfs_loader_callbacks, new VFSLoader(file));
+  DataLoader_Setup(data_loader, &VFSLoader::callbacks, new VFSLoader(file));
   return data_loader;
 }
 
-}  // namespace audvgm
+}  // namespace vgm

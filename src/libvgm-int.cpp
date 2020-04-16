@@ -9,7 +9,7 @@
 
 #include "libvgm-dev-meta.h"
 
-using namespace audvgm;
+using namespace vgm;
 
 PlayerSettings PlayerSettings::init_lib_defaults() {
   PlayerSettings settings;

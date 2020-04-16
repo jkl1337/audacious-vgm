@@ -4,7 +4,7 @@
 class PlayerBase;
 class Tuple;
 
-namespace audvgm {
+namespace vgm {
 
 class TagHandler {
 

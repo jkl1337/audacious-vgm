@@ -1,5 +1,4 @@
 #include "gzfile.h"
-#include "log.h"
 
 #include <cstring>
 
@@ -84,7 +83,6 @@ int64_t GzFile::read(void *buffer, uint64_t n_bytes)
             break;
 
         if (zbuf_.avail_in) {
-
             return 0;
         }
 

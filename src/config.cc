@@ -9,7 +9,7 @@
 
 #include "libvgm-dev-meta.h"
 
-namespace audvgm {
+namespace vgm {
 namespace {
 
 inline std::string dev_name_to_key(const char* label) {

@@ -217,6 +217,7 @@ const char* vgm::core_name(uint32_t core_id) {
   }
 }
 
+// FIXME: This does not handle YM2612 correctly at the least.
 const char* vgm::accurate_chip_name(const PLR_DEV_INFO& info) {
   uint32_t flags = info.cParams;
   switch (info.type) {

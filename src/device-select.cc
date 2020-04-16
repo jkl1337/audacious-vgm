@@ -116,11 +116,11 @@ constexpr static bool playing_device_comp(const PlayingDevice& lhs, const Playin
   return lhs.dev_idx < rhs.dev_idx || (lhs.dev_idx == rhs.dev_idx && lhs.instance < rhs.instance);
 }
 
-DeviceTreeModel::DeviceTreeModel(audvgm::SettingsManager& settings_manager,
-                                 audvgm::PlaybackStatus& playback_status, QObject* parent,
+DeviceTreeModel::DeviceTreeModel(vgm::SettingsManager& settings_manager,
+                                 vgm::PlaybackStatus& playback_status, QObject* parent,
                                  const vgm::DeviceConfigList& info_list)
     : QAbstractItemModel(parent), settings_manager_(settings_manager), info_list_(info_list) {
-  auto hook_func = [](const audvgm::PlaybackStatus& ps, void* ctx) {
+  auto hook_func = [](const vgm::PlaybackStatus& ps, void* ctx) {
     auto* self = static_cast<DeviceTreeModel*>(ctx);
     const auto& info_list = self->info_list_;
     const auto& new_player_info = ps.get_device_info();
@@ -146,13 +146,12 @@ DeviceTreeModel::DeviceTreeModel(audvgm::SettingsManager& settings_manager,
 
     int changing_dev = -1;
     for (const auto& a : changed) {
-      // FIXME: index for multiple columns
       auto mi = self->createIndex(a.instance, 0,
                                   NodeLocator::make_instance(a.dev_idx, a.instance).internal());
       self->dataChanged(mi, mi, roles);
       if (changing_dev != a.dev_idx) {
         changing_dev = a.dev_idx;
-        mi = self->createIndex(a.dev_idx, 0, NodeLocator::make_device(a.dev_idx).internal());
+        mi = self->createIndex(changing_dev, 0, NodeLocator::make_device(a.dev_idx).internal());
         self->dataChanged(mi, mi, roles);
       }
     }
@@ -182,7 +181,7 @@ int DeviceTreeModel::rowCount(const QModelIndex& parent) const {
   return tree_child_count(info_list_, NodeLocator(parent));
 }
 
-int DeviceTreeModel::columnCount(const QModelIndex& parent) const { return 2; }
+int DeviceTreeModel::columnCount(const QModelIndex& parent) const { return 1; }
 
 bool DeviceTreeModel::setData(const QModelIndex& index, const QVariant& value, int role) {
   if (!index.isValid() || role != Qt::CheckStateRole || index.column() != 0) return false;
@@ -197,17 +196,17 @@ bool DeviceTreeModel::setData(const QModelIndex& index, const QVariant& value, i
     case NodeLocator::kLevelDevice: {
       auto writer = settings_manager_.writer();
       changed =
-          writer.set_disable(node.dev_idx(), state, audvgm::PlayerSettings::DisableMask().set());
+          writer.set_disable(node.dev_idx(), state, vgm::PlayerSettings::DisableMask().set());
     } break;
     case NodeLocator::kLevelInstance: {
       auto writer = settings_manager_.writer();
       changed = writer.set_disable(node.dev_idx(), node.instance(), state,
-                                   audvgm::PlayerSettings::DisableMask().set());
+                                   vgm::PlayerSettings::DisableMask().set());
     } break;
     case NodeLocator::kLevelLinked: {
       auto writer = settings_manager_.writer();
       changed = writer.set_disable(node.dev_idx(), node.instance(), state,
-                                   audvgm::PlayerSettings::DisableMask().set(1));
+                                   vgm::PlayerSettings::DisableMask().set(1));
     } break;
     default:
       return false;
@@ -264,7 +263,7 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
 
   if (index.column() == 1) {
     if (role == Qt::DisplayRole && node.level() == NodeLocator::kLevelDevice) {
-      return QVariant(dev_info.core_name());
+      return dev_info.core_name();
     }
     return QVariant();
   }
@@ -273,11 +272,11 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
     case Qt::DisplayRole: {
       switch (node.level()) {
         case NodeLocator::kLevelDevice:
-          return QVariant(dev_info.label);
+          return dev_info.label;
         case NodeLocator::kLevelInstance:
-          return QVariant(instance_row_display(playing_devices_, node));
+          return instance_row_display(playing_devices_, node);
         case NodeLocator::kLevelLinked:
-          return QVariant(dev_info.linked.prefix);
+          return dev_info.linked.prefix;
         default:
           return QVariant();
       }
@@ -320,7 +319,7 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
         default:
           break;
       }
-      return QVariant(value);
+      return value;
     }
     case PlayingDeviceRole: {
       bool playing = false;
@@ -340,7 +339,7 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
         default:
           break;
       }
-      return QVariant(playing);
+      return playing;
     }
     default:
       return QVariant();

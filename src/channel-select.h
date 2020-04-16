@@ -3,9 +3,10 @@
 
 #include <QtCore/QAbstractItemModel>
 
+#include "types.h"
 #include "libvgm-dev-meta.h"
 
-namespace audvgm {
+namespace vgm {
 class SettingsManager;
 class PlaybackStatus;
 }
@@ -14,8 +15,7 @@ namespace vgmqt {
 
 class ChannelTreeModel : public QAbstractItemModel {
  public:
-  explicit ChannelTreeModel(audvgm::SettingsManager& settings_manager,
-                            audvgm::PlaybackStatus* playback_status = nullptr,
+  explicit ChannelTreeModel(vgm::SettingsManager& l, vgm::PlaybackStatus* r = nullptr,
                             QObject* parent = nullptr,
                             const vgm::DeviceConfigList& info_list = vgm::lib_devices);
 
@@ -28,14 +28,11 @@ class ChannelTreeModel : public QAbstractItemModel {
   Qt::ItemFlags flags(const QModelIndex& index) const override;
   QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
  private:
-  audvgm::SettingsManager& settings_manager_;
+  vgm::SettingsManager& settings_manager_;
   const vgm::DeviceConfigList &info_list_;
 
-  struct DeviceKey {
-    int dev_idx;
-    int instance;
-  };
-  std::vector<int> active_devices_;
+  using ActiveDevices = std::vector<vgm::InstanceId>;
+  ActiveDevices active_devices_;
   std::vector<std::vector<std::string>> comments_;
 };
 

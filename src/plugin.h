@@ -7,7 +7,7 @@
 #include "comm.h"
 #include "config.h"
 
-namespace audvgm {
+namespace vgm {
 
 static void ui_realtime_config_update();
 
@@ -22,12 +22,12 @@ class Plugin : public InputPlugin {
                                       about, &prefs};
 
   constexpr Plugin()
-      : InputPlugin(info, InputInfo(FlagSubtunes).with_priority(1).with_exts(exts)) {}
+      : InputPlugin(info, InputInfo().with_priority(1).with_exts(exts)) {}
 
   bool init() override;
   void cleanup() override;
 
-  bool is_our_file(const char *filename, VFSFile &file) override { return false; }
+  bool is_our_file(const char *filename, VFSFile &file) override;
 
   bool read_tag(const char *filename, VFSFile &file, Tuple &tuple,
                 Index<char> *image) override;

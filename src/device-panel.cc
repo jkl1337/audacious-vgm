@@ -8,7 +8,7 @@
 
 #include "libvgm-dev-meta.h"
 
-namespace audvgm {
+namespace vgm {
 class ChannelTreeModel : public QAbstractItemModel {
  public:
   explicit ChannelTreeModel(QObject* parent = nullptr,
@@ -29,7 +29,7 @@ class ChannelTreeModel : public QAbstractItemModel {
 };
 }  // namespace audvgm
 
-using namespace audvgm;
+using namespace vgm;
 
 ChannelTreeModel::ChannelTreeModel(QObject* parent, const vgm::DeviceConfigList& device_db)
     : device_db_(device_db) {}
@@ -41,7 +41,7 @@ QModelIndex ChannelTreeModel::index(int row, int column, const QModelIndex& pare
 }
 
 Qt::ItemFlags ChannelTreeModel::flags(const QModelIndex& index) const {
-  return QAbstractItemModel::flags(index);
+    return QAbstractItemModel::flags(index);
 }
 
 QModelIndex ChannelTreeModel::parent(const QModelIndex& child) const { return QModelIndex(); }

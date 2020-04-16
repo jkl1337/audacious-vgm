@@ -3,7 +3,7 @@
 
 #include <libaudcore/runtime.h>
 
-namespace audvgm {
+namespace vgm {
     static void log_err(const char *err)
     {
         if (err)

@@ -4,10 +4,10 @@
 #include "comm.h"
 class PlaybackStatus;
 
-namespace audvgm {
+namespace vgm {
 
 void* construct_chip_control_widget(PlaybackStatus& playback_status,
-                                    audvgm::SettingsManager& settings_manager);
+                                    vgm::SettingsManager& settings_manager);
 
 }
 

@@ -6,7 +6,7 @@
 
 typedef struct _data_loader DATA_LOADER;
 
-namespace audvgm {
+namespace vgm {
 DATA_LOADER *VFSLoader_Init(VFSFile &file);
 }
 
