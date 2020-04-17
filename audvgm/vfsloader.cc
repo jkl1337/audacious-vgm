@@ -26,6 +26,8 @@ class vgmtk::VFSLoaderOps {
   VFSLoaderOps(VFSLoaderOps &&) = default;
   VFSLoaderOps &operator=(VFSLoaderOps &&) = default;
 
+  virtual ~VFSLoaderOps() = default;
+
   virtual UINT32 read(UINT8 *buffer, UINT32 numBytes) {
     if (!file_) return 0;
     return file_->fread(buffer, 1, numBytes);

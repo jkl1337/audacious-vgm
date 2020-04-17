@@ -25,9 +25,8 @@ class GzFile {
 
  public:
   explicit GzFile(VFSFile *file, Mode mode = MODE_AUTO)
-      : file_(file), buffer_(16384), mode_(mode) {
-    reset();
-  }
+      : file_(file), buffer_(16384), mode_(mode) { reset(); }
+  ~GzFile() { close(); }
 
   bool open();
   void close();
