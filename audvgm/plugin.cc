@@ -6,6 +6,7 @@
 #include <libaudcore/interface.h>
 #include <libaudcore/preferences.h>
 #include <libaudcore/runtime.h>
+#include <qtui/qvgm-factory.h>
 
 #include "config.h"
 
@@ -179,15 +180,9 @@ const PluginPreferences Plugin::prefs = {widgets};
 
 LIBAUDCORE_PUBLIC vgmtk::Plugin aud_plugin_instance;
 
-namespace vgmtk {
-void* construct_chip_control_widget(PlaybackStatus &playback_status,
-                              vgmtk::SettingsManager &settings_manager);
-}
-
 static void *vgmtk::populate_chip_prefs() {
-  auto plugin = static_cast<Plugin*>(&aud_plugin_instance);
-  return nullptr;
-  //return construct_chip_control_widget(plugin->playback_status(), plugin->settings_manager());
+  auto *plugin = static_cast<Plugin*>(&aud_plugin_instance);
+  return vgmqt::create_qvgm_control_panel(plugin->playback_status(), plugin->settings_manager());
 }
 
 //void vgmtk::vgm_configure() {

@@ -18,7 +18,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(libvgm EXCLUDE_FROM_ALL)
 add_subdirectory(corelib)
-#add_subdirectory(qtui)
+add_subdirectory(qtui)
 add_subdirectory(audvgm)
 
 

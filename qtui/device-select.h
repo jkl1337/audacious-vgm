@@ -5,8 +5,8 @@
 #include <QtCore/QSortFilterProxyModel>
 #include <bitset>
 
-#include "../corelib/libvgm-dev-meta.h"
-#include "../corelib/types.h"
+#include <corelib/libvgm-dev-meta.h>
+#include <corelib/types.h>
 
 namespace vgmtk {
 class SettingsManager;

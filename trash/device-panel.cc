@@ -6,7 +6,7 @@
 #include <libaudcore/i18n.h>
 #include <libaudqt/libaudqt.h>
 
-#include "../corelib/libvgm-dev-meta.h"
+#include "corelib/libvgm-dev-meta.h"
 
 namespace vgmtk {
 class ChannelTreeModel : public QAbstractItemModel {
