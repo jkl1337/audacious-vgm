@@ -5,6 +5,7 @@
 #include <cstring>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 #include <vector>
 

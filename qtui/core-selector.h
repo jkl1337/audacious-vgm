@@ -5,6 +5,8 @@
 #ifndef VGMTK_CORE_SELECTOR_H
 #define VGMTK_CORE_SELECTOR_H
 
+#include <array>
+
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QWidget>
 

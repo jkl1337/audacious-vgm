@@ -1,9 +1,11 @@
+#include <cstring>
+#include <algorithm>
+
 #include <libaudcore/runtime.h>
 #include <libvgm/emu/EmuCores.h>
 #include <libvgm/emu/SoundDevs.h>
 #include <libvgm/emu/cores/2612intf.h>
 
-#include <cstring>
 #include <libvgm/player/playerbase.hpp>
 #include <libvgm/player/vgmplayer.hpp>
 
@@ -133,8 +135,8 @@ void process_frames(BufT *out, PosT remaining_frames, PosT fade_frames, CntT num
     }
     s[0] = (s[0] * gains[0]) / 256;
     s[1] = (s[1] * gains[1]) / 256;
-    pack_frame(out, Frame{std::clamp<int_fast64_t>(s[0], kSampMin, kSampMax),
-                          std::clamp<int_fast64_t>(s[1], kSampMin, kSampMax)});
+    pack_frame(out, Frame{static_cast<int_fast32_t>(std::clamp<int_fast64_t>(s[0], kSampMin, kSampMax)),
+                          static_cast<int_fast32_t>(std::clamp<int_fast64_t>(s[1], kSampMin, kSampMax))});
     out += 2;
   }
 }
@@ -213,7 +215,7 @@ class PlaybackHandler {
 
     if (frame_position_ < total_frames_) {
       uint_fast32_t remaining_frames = total_frames_ - frame_position_;
-      n_frames = std::min(render_buffer_.size(), remaining_frames);
+      n_frames = std::min<int>(render_buffer_.size(), remaining_frames);
 
       std::memset(render_buffer_.data(), 0, render_buffer_.size() * sizeof render_buffer_[0]);
 
@@ -228,7 +230,7 @@ class PlaybackHandler {
         i += n_block;
       }
     } else if (frame_position_ - total_frames_ < gap_frames_) {
-      n_frames = std::min(output_buffer_.size() / kNChannels,
+      n_frames = std::min<int>(output_buffer_.size() / kNChannels,
                           gap_frames_ - (frame_position_ - total_frames_));
       std::memset(output_buffer_.data(), 0, n_frames * kNChannels * sizeof output_buffer_[0]);
       frame_position_ += n_frames;

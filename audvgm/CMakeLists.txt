@@ -9,6 +9,8 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
 pkg_search_module(audacious REQUIRED IMPORTED_TARGET audacious>=3.9)
 
+find_library(AUDQT audqt)
+
 add_library(vgm MODULE
         comm.cc config.cc config.h gzfile.cc gzfile.h
         log.h player.cc plugin.cc plugin.h tags.cc tags.h
@@ -16,4 +18,4 @@ add_library(vgm MODULE
 
 set_target_properties(vgm PROPERTIES PREFIX "")
 # add_executable(tester vgmtk/tester.cpp vgmtk/libvgm-dev-meta.cpp)
-target_link_libraries(vgm corelib-obj vgm-player_obj vgm-emu_obj vgm-utils_obj qtui PkgConfig::audacious audqt) # Qt5::Widgets audqt)
+target_link_libraries(vgm corelib-obj vgm-player_obj vgm-emu_obj vgm-utils_obj qtui PkgConfig::audacious ${AUDQT}) # Qt5::Widgets ${AUDQT})

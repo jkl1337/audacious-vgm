@@ -3,7 +3,7 @@
 //
 
 #ifndef VGMTK_TAGGING_H
-#define VGMTK_VGM_TAGGING_H
+#define VGMTK_TAGGING_H
 
 namespace vgmtk {
 
