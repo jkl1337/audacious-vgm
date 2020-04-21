@@ -101,6 +101,7 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
   tree_view->setModel(filter_model);
   // tree_view->expandRecursively(QModelIndex(), 1);
   tree_view->setUniformRowHeights(true);
+  tree_view->setTextElideMode(Qt::ElideNone);
   tree_view->header()->setStretchLastSection(false);
   tree_view->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
   tree_view->resizeColumnToContents(0);

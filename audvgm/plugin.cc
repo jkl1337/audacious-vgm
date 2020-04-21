@@ -10,9 +10,13 @@
 
 #include "config.h"
 
-namespace vgmtk {
+namespace audqt {
+void plugin_prefs(PluginHandle *ph);
+}
 
-void vgm_configure();
+LIBAUDCORE_PUBLIC vgmtk::Plugin aud_plugin_instance;
+
+namespace vgmtk {
 
 SettingsManager *Plugin::settings_hack = nullptr;
 
@@ -25,8 +29,14 @@ bool Plugin::init() {
   settings_container_ = new SettingsManager(ps);
   settings_hack = settings_container_;
 
-//  aud_plugin_menu_add(AudMenuID::Main, vgmtk::vgm_configure, _("VGM Configure..."),
-//                      nullptr);
+  hook_associate(
+      "audvgm init",
+      [](void *data, void *user) {
+        audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance));
+      },
+      nullptr);
+  event_queue("audvgm init", nullptr);
+  // aud_plugin_menu_add(AudMenuID::Main, vgmtk::vgm_configure, _("VGM Configure..."), nullptr);
 
   return true;
 }
@@ -70,8 +80,7 @@ inline int playback_rate_preset(int r) {
 
 ::ArrayRef<ComboItem> playback_rate_combo_fill() {
   ::ArrayRef<ComboItem> items(playback_rate_items);
-  playback_rate_item_selected =
-      playback_rate_preset(aud_get_int(VGM_CFGID, cfg::kPlaybackRate));
+  playback_rate_item_selected = playback_rate_preset(aud_get_int(VGM_CFGID, cfg::kPlaybackRate));
   if (playback_rate_item_selected != -1) items.len = 3;
   return items;
 }
@@ -83,8 +92,7 @@ void playback_rate_combo_change() {
 }
 
 void playback_rate_entry_change() {
-  playback_rate_item_selected =
-      playback_rate_preset(aud_get_int(VGM_CFGID, cfg::kPlaybackRate));
+  playback_rate_item_selected = playback_rate_preset(aud_get_int(VGM_CFGID, cfg::kPlaybackRate));
   hook_call("audvgm config playback_rate", nullptr);
 }
 
@@ -119,8 +127,7 @@ const PreferencesWidget length_widgets[] = {
                {0, 360000, 200, N_("ms")}),
     WidgetCheck(N_("Hard stop old VGMs"), WidgetBool(VGM_CFGID, cfg::kHardStopOld)),
     WidgetLabel(N_("<b>Gap between tracks</b>")),
-    WidgetSpin(N_("Looping:"), WidgetInt(VGM_CFGID, cfg::kGapLooping),
-               {0, 360000, 200, N_("ms")}),
+    WidgetSpin(N_("Looping:"), WidgetInt(VGM_CFGID, cfg::kGapLooping), {0, 360000, 200, N_("ms")}),
     WidgetSpin(N_("Non-looping:"), WidgetInt(VGM_CFGID, cfg::kGapNonLooping),
                {0, 360000, 200, N_("ms")}),
     WidgetLabel(N_("<b>Tags</b>")),
@@ -159,16 +166,12 @@ const PreferencesWidget general_widgets_columns[] = {
     WidgetBox({playback_widgets}),
 };
 
-const PreferencesWidget general_widgets[] = {
-    WidgetBox({{general_widgets_columns}, true})};
+const PreferencesWidget general_widgets[] = {WidgetBox({{general_widgets_columns}, true})};
 
-
-const PreferencesWidget chip_widgets[] = {
-    WidgetCustomQt(vgmtk::populate_chip_prefs)
-};
+const PreferencesWidget chip_widgets[] = {WidgetCustomQt(vgmtk::populate_chip_prefs)};
 
 const NotebookTab notebook_tabs[] = {{N_("General"), {general_widgets}},
-                                            {N_("Other Options"), {chip_widgets}}};
+                                     {N_("Other Options"), {chip_widgets}}};
 
 const PreferencesWidget widgets[] = {WidgetNotebook({{notebook_tabs}})};
 
@@ -176,15 +179,11 @@ const PreferencesWidget widgets[] = {WidgetNotebook({{notebook_tabs}})};
 
 const PluginPreferences Plugin::prefs = {widgets};
 
-}  // namespace audvgm
-
-LIBAUDCORE_PUBLIC vgmtk::Plugin aud_plugin_instance;
+}  // namespace vgmtk
 
 static void *vgmtk::populate_chip_prefs() {
-  auto *plugin = static_cast<Plugin*>(&aud_plugin_instance);
+  auto *plugin = static_cast<Plugin *>(&aud_plugin_instance);
+
+  // audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance));
   return vgmqt::create_qvgm_control_panel(plugin->playback_status(), plugin->settings_manager());
 }
-
-//void vgmtk::vgm_configure() {
-//  audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance));
-//}

@@ -21,7 +21,6 @@ constexpr const int kBufferSizeSamples = 4096;
 constexpr const int kRenderBlockSizeSamples = 1024;
 
 void dump_info(PlayerBase &player) {
-
   auto &vgm_player = static_cast<VGMPlayer &>(player);
 
   PLR_SONG_INFO song_info = {};
@@ -36,6 +35,7 @@ void dump_info(PlayerBase &player) {
     // FIXME: look into this.
     UINT8 messed_up = dev.type == DEVID_RF5C68 ? 0x10 : dev.type;
     auto *chip_device = vgm_player.GetDevicePtr(messed_up, chip_id);
+    if (!chip_device) chip_device = vgm_player.GetDevicePtr(DEVID_RF5C68, chip_id);
     auto *base_dev = &chip_device->base;
 
     auto *dev_info = &base_dev->defInf;
@@ -67,8 +67,8 @@ SR: %u
 
 
 )",
-           dev.id, dev.type, dev.instance, dev.volume, dt->core_name(dev.core), dev.clock, dev.cParams,
-           dev.smplRate);
+           dev.id, dev.type, dev.instance, dev.volume, dt->core_name(dev.core), dev.clock,
+           dev.cParams, dev.smplRate);
     fflush(stdout);
   }
 }
@@ -88,28 +88,35 @@ inline void pack_frame(int16_t *out, const Frame f) {
   out[1] = f.r / 256;
 }
 
+template <typename PosT, typename CntT>
+static CntT fade_start_index(PosT remaining_frames, PosT fade_frames, CntT num_frames) {
+  CntT index = num_frames;
+  if (remaining_frames > fade_frames) {
+    PosT f = remaining_frames - fade_frames;
+    if (f < num_frames) {
+      index = f;
+    }
+  } else {
+    index = 0;
+  }
+  return index;
+}
+
 /**
  * Applies postprocessing of rendered audio, including gain, "surround" sound and
  * fading. Packs into buffer of type BufT.
  */
 template <typename BufT, typename CntT, typename PosT = uint_fast32_t>
 void process_frames(BufT *out, PosT remaining_frames, PosT fade_frames, CntT num_frames,
-                    WAVE_32BS *data, int gain_256, bool surround) {
+                    WAVE_32BS *data, float gain, bool surround) {
   constexpr long kSampMin = -(1 << 24) / 2;
   constexpr long kSampMax = (1 << 24) / 2 - 1;
 
-  const int_fast64_t gains[2]{gain_256, surround ? -gain_256 : gain_256};
+  int_fast64_t gain_fp = gain * 256;
+  const int_fast64_t gains[2]{gain_fp, surround ? -gain_fp : gain_fp};
   int_fast64_t s[2];
 
-  CntT fade_start_i = num_frames;
-  if (remaining_frames > fade_frames) {
-    PosT f = remaining_frames - fade_frames;
-    if (f < num_frames) {
-      fade_start_i = f;
-    }
-  } else {
-    fade_start_i = 0;
-  }
+  CntT fade_start_i = fade_start_index(remaining_frames, fade_frames, num_frames);
 
   for (CntT i = 0; i < num_frames; ++i) {
     s[0] = data[i].L;
@@ -132,21 +139,48 @@ void process_frames(BufT *out, PosT remaining_frames, PosT fade_frames, CntT num
   }
 }
 
+template <typename CntT, typename PosT = uint_fast32_t>
+void process_frames(float *out, PosT remaining_frames, PosT fade_frames, CntT num_frames,
+                    WAVE_32BS *data, float gain, bool surround) {
+  const float gains[2]{gain, surround ? -gain : gain};
+  double s[2];
+
+  CntT fade_start_i = fade_start_index(remaining_frames, fade_frames, num_frames);
+
+  for (CntT i = 0; i < num_frames; ++i) {
+    s[0] = data[i].L;
+    s[1] = data[i].R;
+
+    if (i >= fade_start_i) {
+      float fade_volume = static_cast<float>(remaining_frames - i) / fade_frames;
+      fade_volume *= fade_volume;
+
+      s[0] = s[0] * fade_volume;
+      s[1] = s[1] * fade_volume;
+    }
+    s[0] = (s[0] * gains[0]) / (1 << 23);
+    s[1] = (s[1] * gains[1]) / (1 << 23);
+
+    *out++ = std::clamp(s[0], -1.0, 1.0);
+    *out++ = std::clamp(s[1], -1.0, 1.0);
+  }
+}
+
 class PlaybackHandler {
  public:
   explicit PlaybackHandler(PlayerBase &backend_player, SettingsManager &settings_manager,
-                        PlaybackStatus &playback_status,
-                        DeviceConfigList info_list = vgmtk::lib_devices)
+                           PlaybackStatus &playback_status,
+                           DeviceConfigList info_list = vgmtk::lib_devices)
       : backend_(backend_player),
-        settings_manager_(settings_manager),
-        playback_status_(playback_status),
-        info_list_(info_list),
+        n_frames_(0),
+        gain_(1.0),
+        surround_(false),
         sample_rate_(std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kSampleRate), 0, UINT32_MAX)),
         loop_count_(std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kLoopCount), 0, UINT32_MAX)),
         fade_length_(std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kFadeLength), 0, UINT32_MAX)),
-        gain_256_(256),
-        surround_(false),
-        n_frames_(0) {
+        settings_manager_(settings_manager),
+        playback_status_(playback_status),
+        info_list_(info_list) {
     setup_vgm_player();
     init_chips();
     init_settings();
@@ -189,7 +223,7 @@ class PlaybackHandler {
         n_block = backend_.Render(n_block, &render_buffer_[i]);
 
         process_frames(&output_buffer_[i * 2], total_frames_ - frame_position_, fade_frames_,
-                       n_block, &render_buffer_[i], gain_256_, surround_);
+                       n_block, &render_buffer_[i], gain_, surround_);
         frame_position_ += n_block;
         i += n_block;
       }
@@ -258,7 +292,7 @@ class PlaybackHandler {
 
   void init_settings() {
     auto settings_ctx = settings_manager_.read_always();
-    gain_256_ = std::clamp<int>(settings_ctx->gain * 256.0, 0, 1024);
+    gain_ = std::clamp(settings_ctx->gain, 0.0, 4.0);
     surround_ = settings_ctx->surround;
   }
 
@@ -280,14 +314,17 @@ class PlaybackHandler {
     for (int i = 0; i < chips_.size(); ++i) {
       const auto &c = chips_[i];
       dev_opts[i].muteOpts = mute_opts_[i];
-      if (c.vgm_type == DEVID_YM2612) {
+      if (c.vgm_type == DEVID_YM2612 || c.vgm_type == DEVID_YMF262 || c.vgm_type == DEVID_YM2413 ||
+          c.vgm_type == DEVID_YM3812) {
         auto &dopt = dev_opts[i];
         dopt.emuCore = FCC_NUKE;
-        dopt.coreOpts |= OPT_YM2612_TYPE_OPN2C_ASIC;
+        if (c.vgm_type == DEVID_YM2612) dopt.coreOpts |= OPT_YM2612_TYPE_OPN2C_ASIC;
+      } else if (c.vgm_type == DEVID_SN76496) {
+        auto &dopt = dev_opts[i];
+        dopt.emuCore = FCC_MAXM;
       }
 
-      backend_.SetDeviceOptions(PLR_DEV_ID(info_list_[c.dev_idx].devid, c.instance),
-                                dev_opts[i]);
+      backend_.SetDeviceOptions(PLR_DEV_ID(info_list_[c.dev_idx].devid, c.instance), dev_opts[i]);
     }
   }
 
@@ -319,7 +356,7 @@ class PlaybackHandler {
         backend_.SetDevicePanning(PLR_DEV_ID(c.vgm_type, c.instance), pan.data(), pan.size());
       }
 
-      gain_256_ = std::clamp<int>(reader->gain * 256.0, 0, 1024);
+      gain_ = std::clamp(reader->gain, 0.0, 4.0);
       surround_ = reader->surround;
     }
 
@@ -331,12 +368,12 @@ class PlaybackHandler {
 
   PlayerBase &backend_;
   std::vector<WAVE_32BS> render_buffer_;
-  std::vector<int16_t> output_buffer_;
+  std::vector<float> output_buffer_;
   int n_frames_;
   uint_fast32_t frame_position_;
   uint_fast32_t total_frames_;
   uint_fast32_t fade_frames_;
-  int gain_256_;
+  float gain_;
   bool surround_;
   uint_fast32_t gap_frames_;
 
@@ -364,7 +401,7 @@ bool Plugin::play(const char *, VFSFile &file) {
   TagHandler::get_tags(*fh.player(), t);
   set_playback_tuple(std::move(t));
 
-  open_audio(FMT_S16_NE, handler.sample_rate(), 2);
+  open_audio(FMT_FLOAT, handler.sample_rate(), 2);
 
   while (!check_stop()) {
     int seek_value = check_seek();
@@ -378,4 +415,4 @@ bool Plugin::play(const char *, VFSFile &file) {
   return true;
 }
 
-}  // namespace vgm
+}  // namespace vgmtk

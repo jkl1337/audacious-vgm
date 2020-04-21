@@ -30,9 +30,9 @@ using Cr = vgmtk::CoreSpec;
 const ChG sn76489_cg[] = {{3, sn76489_cname}};
 const ChG ym2413_cg[] = {{9, ym2413_cname}};
 const ChG ym2612_cg[] = {{6, ym2612_cname}};
-const ChG s1ch_cg[] = {{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}},
-                    s6ch_cg[]{{5}}, s8ch_cg[]{{8}}, s12ch_cg[]{{12}}, s16ch_cg[]{{16}},
-                    s24ch_cg[]{{24}}, s28ch_cg[]{{28}}, s32ch_cg[]{{32}};
+const ChG s1ch_cg[] = {{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}}, s6ch_cg[]{{5}},
+          s8ch_cg[]{{8}}, s12ch_cg[]{{12}}, s16ch_cg[]{{16}}, s24ch_cg[]{{24}}, s28ch_cg[]{{28}},
+          s32ch_cg[]{{32}};
 const ChG ym22_cg[] = {{3, nullptr, "FM"}};
 const ChG ym26_cg[] = {{6, nullptr, "FM"}, {6, nullptr, "PCM"}, {0, delta_t_cname}};
 const ChG y8950_cg[] = {{9, ym2413_cname}, {0, delta_t_cname}};
@@ -42,12 +42,10 @@ const ChG nes_cg[] = {{0, nes_cname}};
 
 const Cr mame_cs[] = {{FCC_MAME}};
 const Cr sn76489_cs[] = {{FCC_MAME}, {FCC_MAXM, "Maxim", true}};
-const Cr ym2413_cs[] = {
-    {FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
-const Cr ym2612_cs[] = {
-    {FCC_GPGX, "GPGX", false}, {FCC_NUKE, "Nuked OPN2", false}, {FCC_GENS, "GENS", false}};
+const Cr ym2413_cs[] = {{FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
+const Cr ym2612_cs[] = {{FCC_GPGX, "GPGX", false}, {FCC_NUKE, "Nuked OPN2"}, {FCC_GENS, "GENS"}};
 const Cr rf5c68_cs[] = {{FCC_MAME}, {FCC_GENS, "GENS"}};
-const Cr ym3812_cs[] = {{FCC_MAME}, {FCC_ADLE, "AdLibEmu"}};
+const Cr ym3812_cs[] = {{FCC_MAME}, {FCC_ADLE, "AdLibEmu"}, {FCC_NUKE, "Nuked OPL"}};
 const Cr ymf278b_cs[] = {{FCC_OMSX, "openMSX"}};
 const Cr gens_cs[] = {{FCC_GENS, "Gens/GS"}};
 const Cr ay8910_cs[] = {{FCC_EMU_, "EMU2149", true}};
@@ -117,8 +115,8 @@ const OptionSpec m6258_opts[]{
     {"Force 12-bit", "Enforce 12-bit output precision", OPT_OKIM6258_FORCE_12BIT}};
 
 const OptionSpec scsp_opts[]{{"Bypass DSP",
-                                  "skip all DSP calculations (huge speedup, DSP is broken anyway)",
-                                  OPT_SCSP_BYPASS_DSP}};
+                              "skip all DSP calculations (huge speedup, DSP is broken anyway)",
+                              OPT_SCSP_BYPASS_DSP}};
 const OptionSpec c352_opts[]{
     {"Disable Rear", "Mute rear speakers regardless of configuration", OPT_C352_MUTE_REAR}};
 const OptionSpec ga20_opts[]{
@@ -155,7 +153,7 @@ constexpr const DeviceConfig lib_devices_p[kNumDevices] = {
     {DEVID_NES_APU, "NES APU", nes_cg, nes_cs, nes_opts},
     {DEVID_YMW258, "YMW258", s28ch_cg, mame_cs},
     {DEVID_uPD7759, "uPD7759", s1ch_cg, mame_cs},
-    {DEVID_OKIM6258, "MSM6258", s1ch_cg, mame_cs},
+    {DEVID_OKIM6258, "MSM6258", s1ch_cg, mame_cs, m6258_opts},
     {DEVID_OKIM6295, "MSM6295", s4ch_cg, mame_cs},
     {DEVID_K051649, "K051649", s5ch_cg, mame_cs},
     {DEVID_K054539, "K054539", s8ch_cg, mame_cs},
