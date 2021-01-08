@@ -18,4 +18,4 @@ add_library(vgm MODULE
 
 set_target_properties(vgm PROPERTIES PREFIX "")
 # add_executable(tester vgmtk/tester.cpp vgmtk/libvgm-dev-meta.cpp)
-target_link_libraries(vgm corelib-obj vgm-player_obj vgm-emu_obj vgm-utils_obj qtui PkgConfig::audacious ${AUDQT}) # Qt5::Widgets ${AUDQT})
+target_link_libraries(vgm corelib-obj vgm-player vgm-emu vgm-utils qtui PkgConfig::audacious ${AUDQT}) # Qt5::Widgets ${AUDQT})

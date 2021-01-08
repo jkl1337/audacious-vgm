@@ -68,8 +68,8 @@ SR: %u
 
 
 )",
-           dev.id, dev.type, dev.instance, dev.volume, dt->core_name(dev.core), dev.clock,
-           dev.cParams, dev.smplRate);
+           dev.id, dev.type, dev.instance, dev.volume, dt->core_name(dev.core), dev.devCfg->clock,
+           dev.devCfg->flags, dev.smplRate);
     fflush(stdout);
   }
 }
@@ -315,11 +315,11 @@ class PlaybackHandler {
       if (c.vgm_type == DEVID_YM2612 || c.vgm_type == DEVID_YMF262 || c.vgm_type == DEVID_YM2413 ||
           c.vgm_type == DEVID_YM3812) {
         auto &dopt = dev_opts[i];
-        dopt.emuCore = FCC_NUKE;
+        dopt.emuCore[0] = FCC_NUKE;
         if (c.vgm_type == DEVID_YM2612) dopt.coreOpts |= OPT_YM2612_TYPE_OPN2C_ASIC;
       } else if (c.vgm_type == DEVID_SN76496) {
         auto &dopt = dev_opts[i];
-        dopt.emuCore = FCC_MAXM;
+        dopt.emuCore[0] = FCC_MAXM;
       }
 
       backend_.SetDeviceOptions(PLR_DEV_ID(info_list_[c.dev_idx].devid, c.instance), dev_opts[i]);
@@ -351,7 +351,10 @@ class PlaybackHandler {
 
       for (const auto &c : chips_pannable_) {
         const auto &pan = reader.get_panning_opt(c);
-        backend_.SetDevicePanning(PLR_DEV_ID(c.vgm_type, c.instance), pan.data(), pan.size());
+        PLR_DEV_OPTS dev_opts{};
+        backend_.GetDeviceOptions(PLR_DEV_ID(c.vgm_type, c.instance), dev_opts);
+        std::copy(pan.begin(), pan.end(), &dev_opts.panOpts.chnPan[0][0]);
+        backend_.SetDeviceOptions(PLR_DEV_ID(c.vgm_type, c.instance), dev_opts);
       }
 
       gain_ = std::clamp(reader->gain, 0.0, 4.0);

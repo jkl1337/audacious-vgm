@@ -16,6 +16,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(LIBRARY_TYPE OBJECT)
 add_subdirectory(libvgm EXCLUDE_FROM_ALL)
 add_subdirectory(corelib)
 add_subdirectory(qtui)

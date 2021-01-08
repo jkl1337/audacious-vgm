@@ -197,7 +197,7 @@ bool FileHandler::load() {
     return false;
   }
 
-  if (VGMPlayer::IsMyFile(loader_.libvgm_loader()) == 0) {
+  if (VGMPlayer::PlayerCanLoadFile(loader_.libvgm_loader()) == 0) {
     player_ = std::make_unique<VGMPlayer>();
   } else {
     log_err("Unsupported file type\n");

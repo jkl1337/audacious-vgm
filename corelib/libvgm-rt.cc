@@ -42,7 +42,7 @@ void SettingsManager::ReadContext::load_dev_opts(const std::vector<InstanceId> &
     const auto &dev_info = vgmtk::lib_devices[i.dev_idx];
     const auto &dcb = settings_.device(i);
 
-    output->emuCore = dcb.core;
+    output->emuCore[0] = dcb.core;
     output->coreOpts = dcb.core_opts;
     ++output;
   }

@@ -217,7 +217,7 @@ const char* vgmtk::core_name(uint32_t core_id) {
 
 // FIXME: This does not handle YM2612 correctly at the least.
 const char* vgmtk::accurate_chip_name(const PLR_DEV_INFO& info) {
-  uint32_t flags = info.cParams;
+  uint32_t flags = info.devCfg->flags;
   switch (info.type) {
     case DEVID_SN76496: {
       if (info.instance == 1 && flags & (1 << 31)) {
