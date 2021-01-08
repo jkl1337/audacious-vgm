@@ -54,8 +54,6 @@ const char Plugin::about[] =
 
 const char *const Plugin::exts[] = {"vgm", "vgz", nullptr};
 
-static void *populate_chip_prefs();
-
 namespace {
 
 int playback_rate_item_selected;
@@ -168,7 +166,10 @@ const PreferencesWidget general_widgets_columns[] = {
 
 const PreferencesWidget general_widgets[] = {WidgetBox({{general_widgets_columns}, true})};
 
-const PreferencesWidget chip_widgets[] = {WidgetCustomQt(vgmtk::populate_chip_prefs)};
+const PreferencesWidget chip_widgets[] = {WidgetCustomQt([]() -> void * {
+  const auto &plugin = aud_plugin_instance;
+  return vgmqt::create_qvgm_control_panel(plugin.playback_status(), plugin.settings_manager());
+})};
 
 const NotebookTab notebook_tabs[] = {{N_("General"), {general_widgets}},
                                      {N_("Other Options"), {chip_widgets}}};
@@ -180,10 +181,3 @@ const PreferencesWidget widgets[] = {WidgetNotebook({{notebook_tabs}})};
 const PluginPreferences Plugin::prefs = {widgets};
 
 }  // namespace vgmtk
-
-static void *vgmtk::populate_chip_prefs() {
-  auto *plugin = static_cast<Plugin *>(&aud_plugin_instance);
-
-  // audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance));
-  return vgmqt::create_qvgm_control_panel(plugin->playback_status(), plugin->settings_manager());
-}

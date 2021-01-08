@@ -1,11 +1,10 @@
-#include <cstring>
-#include <algorithm>
-
 #include <libaudcore/runtime.h>
 #include <libvgm/emu/EmuCores.h>
 #include <libvgm/emu/SoundDevs.h>
 #include <libvgm/emu/cores/2612intf.h>
 
+#include <algorithm>
+#include <cstring>
 #include <libvgm/player/playerbase.hpp>
 #include <libvgm/player/vgmplayer.hpp>
 
@@ -135,8 +134,9 @@ void process_frames(BufT *out, PosT remaining_frames, PosT fade_frames, CntT num
     }
     s[0] = (s[0] * gains[0]) / 256;
     s[1] = (s[1] * gains[1]) / 256;
-    pack_frame(out, Frame{static_cast<int_fast32_t>(std::clamp<int_fast64_t>(s[0], kSampMin, kSampMax)),
-                          static_cast<int_fast32_t>(std::clamp<int_fast64_t>(s[1], kSampMin, kSampMax))});
+    pack_frame(
+        out, Frame{static_cast<int_fast32_t>(std::clamp<int_fast64_t>(s[0], kSampMin, kSampMax)),
+                   static_cast<int_fast32_t>(std::clamp<int_fast64_t>(s[1], kSampMin, kSampMax))});
     out += 2;
   }
 }
@@ -144,27 +144,23 @@ void process_frames(BufT *out, PosT remaining_frames, PosT fade_frames, CntT num
 template <typename CntT, typename PosT = uint_fast32_t>
 void process_frames(float *out, PosT remaining_frames, PosT fade_frames, CntT num_frames,
                     WAVE_32BS *data, float gain, bool surround) {
-  const float gains[2]{gain, surround ? -gain : gain};
-  double s[2];
+  const float gains[2]{gain / (1 << 23), surround ? -gain / (1 << 23) : gain / (1 << 23)};
 
-  CntT fade_start_i = fade_start_index(remaining_frames, fade_frames, num_frames);
+  CntT i_fade_start = fade_start_index(remaining_frames, fade_frames, num_frames);
 
   for (CntT i = 0; i < num_frames; ++i) {
-    s[0] = data[i].L;
-    s[1] = data[i].R;
+    float volume[2] = {gains[0], gains[1]};
 
-    if (i >= fade_start_i) {
+    if (i >= i_fade_start) {
       float fade_volume = static_cast<float>(remaining_frames - i) / fade_frames;
       fade_volume *= fade_volume;
 
-      s[0] = s[0] * fade_volume;
-      s[1] = s[1] * fade_volume;
+      volume[0] *= fade_volume;
+      volume[1] *= fade_volume;
     }
-    s[0] = (s[0] * gains[0]) / (1 << 23);
-    s[1] = (s[1] * gains[1]) / (1 << 23);
 
-    *out++ = std::clamp(s[0], -1.0, 1.0);
-    *out++ = std::clamp(s[1], -1.0, 1.0);
+    *out++ = std::clamp(static_cast<double>(data[i].L) * volume[0], -1.0, 1.0);
+    *out++ = std::clamp(static_cast<double>(data[i].R) * volume[1], -1.0, 1.0);
   }
 }
 
@@ -231,7 +227,7 @@ class PlaybackHandler {
       }
     } else if (frame_position_ - total_frames_ < gap_frames_) {
       n_frames = std::min<int>(output_buffer_.size() / kNChannels,
-                          gap_frames_ - (frame_position_ - total_frames_));
+                               gap_frames_ - (frame_position_ - total_frames_));
       std::memset(output_buffer_.data(), 0, n_frames * kNChannels * sizeof output_buffer_[0]);
       frame_position_ += n_frames;
     } else {
