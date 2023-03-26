@@ -4,12 +4,13 @@
 #include <corelib/libvgm-iface.h>
 #include <corelib/libvgm-rt.h>
 
-#include <QtGui/QMouseEvent>
-#include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QHeaderView>
-#include <QtWidgets/QShortcut>
-#include <QtWidgets/QStyledItemDelegate>
-#include <QtWidgets/QTreeView>
+#include <QMouseEvent>
+#include <QShortcut>
+
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QStyledItemDelegate>
+#include <QTreeView>
 
 #include "channel-select.h"
 #include "core-selector.h"
