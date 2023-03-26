@@ -313,7 +313,7 @@ class PlaybackHandler {
       const auto &c = chips_[i];
       dev_opts[i].muteOpts = mute_opts_[i];
       if (c.vgm_type == DEVID_YM2612 || c.vgm_type == DEVID_YMF262 || c.vgm_type == DEVID_YM2413 ||
-          c.vgm_type == DEVID_YM3812) {
+          c.vgm_type == DEVID_YM3812 || c.vgm_type == DEVID_YM2151) {
         auto &dopt = dev_opts[i];
         dopt.emuCore[0] = FCC_NUKE;
         if (c.vgm_type == DEVID_YM2612) dopt.coreOpts |= OPT_YM2612_TYPE_OPN2C_ASIC;
