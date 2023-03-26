@@ -17,44 +17,44 @@ using namespace vgmtk;
 
 namespace {
 
-const char* sn76489_cname[] = {"Noise"};
-const char* ym2413_cname[] = {"Bass Drum", "Snare Drum", "Tom Tom", "Cymbal", "Hi-Hat"};
-const char* ym2612_cname[] = {"DAC"};
-const char* delta_t_cname[] = {"Delta-T"};
-const char* gb_cname[] = {"Square 1", "Square 2", "Prog. Wave", "Noise"};
-const char* nes_cname[] = {"Square 1", "Square 2", "Triangle", "Noise", "DPCM", "FDS"};
+const char* sn76489_cname[]{"Noise"};
+const char* ym2413_cname[]{"Bass Drum", "Snare Drum", "Tom Tom", "Cymbal", "Hi-Hat"};
+const char* ym2612_cname[]{"DAC"};
+const char* delta_t_cname[]{"Delta-T"};
+const char* gb_cname[]{"Square 1", "Square 2", "Prog. Wave", "Noise"};
+const char* nes_cname[]{"Square 1", "Square 2", "Triangle", "Noise", "DPCM", "FDS"};
 
 using ChG = vgmtk::ChannelGroup;
 using Cr = vgmtk::CoreSpec;
 
-const ChG sn76489_cg[] = {{3, sn76489_cname}};
-const ChG ym2413_cg[] = {{9, ym2413_cname}};
-const ChG ym2612_cg[] = {{6, ym2612_cname}};
-const ChG s1ch_cg[] = {{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}}, s6ch_cg[]{{5}},
-          s8ch_cg[]{{8}}, s12ch_cg[]{{12}}, s16ch_cg[]{{16}}, s24ch_cg[]{{24}}, s28ch_cg[]{{28}},
-          s32ch_cg[]{{32}};
-const ChG ym22_cg[] = {{3, nullptr, "FM"}};
-const ChG ym26_cg[] = {{6, nullptr, "FM"}, {6, nullptr, "PCM"}, {0, delta_t_cname}};
-const ChG y8950_cg[] = {{9, ym2413_cname}, {0, delta_t_cname}};
-const ChG ymf262_cg[] = {{18, ym2413_cname}};
-const ChG gb_cg[] = {{0, gb_cname}};
-const ChG nes_cg[] = {{0, nes_cname}};
+const ChG sn76489_cg[]{{3, sn76489_cname}};
+const ChG ym2413_cg[]{{9, ym2413_cname}};
+const ChG ym2612_cg[]{{6, ym2612_cname}};
+const ChG s1ch_cg[]{{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}}, s6ch_cg[]{{5}},
+    s8ch_cg[]{{8}}, s12ch_cg[]{{12}}, s16ch_cg[]{{16}}, s24ch_cg[]{{24}}, s28ch_cg[]{{28}},
+    s32ch_cg[]{{32}};
+const ChG ym22_cg[]{{3, nullptr, "FM"}};
+const ChG ym26_cg[]{{6, nullptr, "FM"}, {6, nullptr, "PCM"}, {0, delta_t_cname}};
+const ChG y8950_cg[]{{9, ym2413_cname}, {0, delta_t_cname}};
+const ChG ymf262_cg[]{{18, ym2413_cname}};
+const ChG gb_cg[]{{0, gb_cname}};
+const ChG nes_cg[]{{0, nes_cname}};
 
-const Cr mame_cs[] = {{FCC_MAME}};
-const Cr sn76489_cs[] = {{FCC_MAME}, {FCC_MAXM, "Maxim", true}};
-const Cr ym2413_cs[] = {{FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
-const Cr ym2612_cs[] = {{FCC_GPGX, "GPGX", false}, {FCC_NUKE, "Nuked OPN2"}, {FCC_GENS, "GENS"}};
-const Cr rf5c68_cs[] = {{FCC_MAME}, {FCC_GENS, "GENS"}};
-const Cr ym3812_cs[] = {{FCC_MAME}, {FCC_ADLE, "AdLibEmu"}, {FCC_NUKE, "Nuked OPL"}};
-const Cr ymf278b_cs[] = {{FCC_OMSX, "openMSX"}};
-const Cr gens_cs[] = {{FCC_GENS, "Gens/GS"}};
-const Cr ay8910_cs[] = {{FCC_EMU_, "EMU2149", true}};
-const Cr nes_cs[] = {{FCC_NSFP, "NSFPlay"}, {FCC_MAME}};
-const Cr c6280_cs[] = {{FCC_OOTK, "Ootake"}, {FCC_MAME}};
-const Cr qsound_cs[] = {{FCC_CTR_, "ctr"}, {FCC_MAME}};
-const Cr wswan_cs[] = {{0, "in_wsr"}};
-const Cr vboy_cs[] = {{FCC_MEDN, "Mednafen"}};
-const Cr saa_cs[] = {{FCC_MAME}, {FCC_VBEL, "Valley Bell"}};
+const Cr mame_cs[]{{FCC_MAME}};
+const Cr sn76489_cs[]{{FCC_MAME}, {FCC_MAXM, "Maxim", true}};
+const Cr ym2413_cs[]{{FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
+const Cr ym2612_cs[]{{FCC_GPGX, "GPGX", false}, {FCC_NUKE, "Nuked OPN2"}, {FCC_GENS, "GENS"}};
+const Cr rf5c68_cs[]{{FCC_MAME}, {FCC_GENS, "GENS"}};
+const Cr ym3812_cs[]{{FCC_MAME}, {FCC_ADLE, "AdLibEmu"}, {FCC_NUKE, "Nuked OPL"}};
+const Cr ymf278b_cs[]{{FCC_OMSX, "openMSX"}};
+const Cr gens_cs[]{{FCC_GENS, "Gens/GS"}};
+const Cr ay8910_cs[]{{FCC_EMU_, "EMU2149", true}};
+const Cr nes_cs[]{{FCC_NSFP, "NSFPlay"}, {FCC_MAME}};
+const Cr c6280_cs[]{{FCC_OOTK, "Ootake"}, {FCC_MAME}};
+const Cr qsound_cs[]{{FCC_CTR_, "ctr"}, {FCC_MAME}};
+const Cr wswan_cs[]{{0, "in_wsr"}};
+const Cr vboy_cs[]{{FCC_MEDN, "Mednafen"}};
+const Cr saa_cs[]{{FCC_MAME}, {FCC_VBEL, "Valley Bell"}};
 const Cr mikey_cs[]{{FCC_LAOO}};
 const Cr ym2151_cs[]{{FCC_MAME}, {FCC_NUKE, "Nuked OPM"}};
 
