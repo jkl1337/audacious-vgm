@@ -55,6 +55,8 @@ const Cr qsound_cs[] = {{FCC_CTR_, "ctr"}, {FCC_MAME}};
 const Cr wswan_cs[] = {{0, "in_wsr"}};
 const Cr vboy_cs[] = {{FCC_MEDN, "Mednafen"}};
 const Cr saa_cs[] = {{FCC_MAME}, {FCC_VBEL, "Valley Bell"}};
+const Cr mikey_cs[]{{FCC_LAOO}};
+const Cr ym2151_cs[]{{FCC_MAME}, {FCC_NUKE, "Nuked OPM"}};
 
 const SwitchOption ym2612_chip_type_opts[]{
     {"YM2612", "Emulate original YM2612", OPT_YM2612_TYPE_OPN2},
@@ -125,11 +127,11 @@ const OptionSpec ga20_opts[]{
 const int kIdxAY8910 = 17;
 const int kIdxYMF262 = 12;
 
-constexpr const DeviceConfig lib_devices_p[kNumDevices] = {
+constexpr const DeviceConfig lib_devices_p[kNumDevices]{
     {DEVID_SN76496, "SN76496", sn76489_cg, sn76489_cs},
     {DEVID_YM2413, "YM2413", ym2413_cg, ym2413_cs},
     {DEVID_YM2612, "YM2612", ym2612_cg, ym2612_cs, ym2612_opts},
-    {DEVID_YM2151, "YM2151", s8ch_cg, mame_cs},
+    {DEVID_YM2151, "YM2151", s8ch_cg, ym2151_cs},
     {DEVID_SEGAPCM, "Sega PCM", s16ch_cg, mame_cs},
     {DEVID_RF5C68, "RF5C68", s8ch_cg, rf5c68_cs},
     {DEVID_YM2203, "YM2203", ym22_cg, mame_cs, {}, LinkSpec{lib_devices_p + kIdxAY8910, "PSG"}},
@@ -171,7 +173,8 @@ constexpr const DeviceConfig lib_devices_p[kNumDevices] = {
     {DEVID_ES5506, "ES5506", s32ch_cg, mame_cs},
     {DEVID_X1_010, "X1-010", s16ch_cg, mame_cs},
     {DEVID_C352, "C352", s32ch_cg, mame_cs, c352_opts},
-    {DEVID_GA20, "Irem GA20", s4ch_cg, mame_cs, ga20_opts}};
+    {DEVID_GA20, "Irem GA20", s4ch_cg, mame_cs, ga20_opts},
+    {DEVID_MIKEY, "MIKEY", s4ch_cg, mikey_cs}};
 
 static_assert(lib_devices_p[kIdxYMF262].devid == DEVID_YMF262, "kIdxYMF262 is incorrect.");
 static_assert(lib_devices_p[kIdxAY8910].devid == DEVID_AY8910, "kIdxAY8910 is incorrect.");
@@ -210,6 +213,8 @@ const char* vgmtk::core_name(uint32_t core_id) {
       return "Valley Bell";
     case FCC_CTR_:
       return "ctr";
+    case FCC_LAOO:
+      return "laoo";
     default:
       return "Invalid";
   }

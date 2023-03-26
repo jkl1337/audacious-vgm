@@ -1,4 +1,4 @@
-/build/
-/build-rel/
+/build-*/
 compile_commands.json
 
+/.cache/

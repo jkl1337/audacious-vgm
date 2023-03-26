@@ -5,6 +5,8 @@
 #ifndef VGMTK_TAGGING_H
 #define VGMTK_TAGGING_H
 
+#include <string>
+
 namespace vgmtk {
 
 template <typename I>

@@ -11,7 +11,7 @@ struct PLR_DEV_INFO;
 
 namespace vgmtk {
 
-constexpr const int kNumDevices = 41;
+constexpr const int kNumDevices = 42;
 constexpr const int kNumInstances = 2;
 constexpr const int kMaxLinked = 2;
 constexpr const int kMaxChannels = 32;
