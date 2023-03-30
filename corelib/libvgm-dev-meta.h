@@ -1,6 +1,7 @@
 #ifndef VGM_DEV_META_H_
 #define VGM_DEV_META_H_
 
+#include <cstddef>
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -28,10 +29,10 @@ struct ArrayRef {
 
   constexpr ArrayRef(decltype(nullptr) = nullptr) : data(nullptr), len(0) {}
 
-  template <size_t N>
+  template <std::size_t N>
   constexpr ArrayRef(const T (&array)[N]) : data(array), len(N) {}
 
-  template <size_t N>
+  template <std::size_t N>
   constexpr ArrayRef(const std::array<T, N> &a) : data(a.data()), len(N) {}
 
   constexpr ArrayRef(const T *data, int len) : data(data), len(len) {}
@@ -109,7 +110,7 @@ const char *accurate_chip_name(const PLR_DEV_INFO &);
 const char *core_name(uint32_t core_id);
 
 class DeviceConfigList;
-extern const size_t num_devices;
+extern const std::size_t num_devices;
 extern const DeviceConfigList lib_devices;
 
 struct DeviceConfig {

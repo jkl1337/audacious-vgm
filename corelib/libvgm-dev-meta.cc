@@ -180,7 +180,7 @@ static_assert(lib_devices_p[kIdxYMF262].devid == DEVID_YMF262, "kIdxYMF262 is in
 static_assert(lib_devices_p[kIdxAY8910].devid == DEVID_AY8910, "kIdxAY8910 is incorrect.");
 }  // namespace
 
-const size_t vgmtk::num_devices = sizeof(lib_devices_p) / sizeof(lib_devices_p[0]);
+const std::size_t vgmtk::num_devices = sizeof(lib_devices_p) / sizeof(lib_devices_p[0]);
 const DeviceConfigList vgmtk::lib_devices(lib_devices_p, num_devices);
 
 #pragma clang diagnostic push
