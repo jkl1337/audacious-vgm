@@ -16,6 +16,7 @@ constexpr const int kNumDevices = 42;
 constexpr const int kNumInstances = 2;
 constexpr const int kMaxLinked = 2;
 constexpr const int kMaxChannels = 32;
+constexpr const int kMaxAllChannels = 64;
 
 constexpr const uint_least32_t kCoreInvalid = UINT32_MAX;
 

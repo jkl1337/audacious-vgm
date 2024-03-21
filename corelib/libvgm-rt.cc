@@ -19,15 +19,15 @@ void SettingsManager::ReadContext::load_mute_opts(const std::vector<InstanceId> 
     if (solo) {
       mute_mask |= ~ccb.channel_solo;
     }
-    uint_fast32_t mute_bits = mute_mask.to_ulong();
+    uint_fast64_t mute_bits = mute_mask.to_ullong();
 
     if (dev_info.has_linked()) {
       unsigned shift = dev_info.num_channels();
-      uint_fast32_t mask = (1 << shift) - 1;
-      output->chnMute[0] = mute_bits & mask;
-      output->chnMute[1] = (mute_bits & ~mask) >> shift;
+      uint_fast64_t mask = (1ULL << shift) - 1;
+      output->chnMute[0] = static_cast<UINT32>(mute_bits & mask);
+      output->chnMute[1] = static_cast<UINT32>((mute_bits & ~mask) >> shift);
     } else {
-      output->chnMute[0] = mute_bits;
+      output->chnMute[0] = static_cast<UINT32>(mute_bits);
       output->chnMute[1] = 0;
     }
     ++output;

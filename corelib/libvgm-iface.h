@@ -19,7 +19,7 @@ namespace vgmtk {
 struct PlayerSettings {
  public:
   typedef std::bitset<vgmtk::kMaxLinked> DisableMask;
-  typedef std::bitset<vgmtk::kMaxChannels> ChannelMask;
+  typedef std::bitset<vgmtk::kMaxAllChannels> ChannelMask;
 
   struct Chip {
     DisableMask disable = 0;
