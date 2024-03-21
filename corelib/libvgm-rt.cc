@@ -6,7 +6,7 @@ void SettingsManager::ReadContext::load_mute_opts(const std::vector<InstanceId> 
                                                   std::vector<PLR_MUTE_OPTS> &opts) const {
   auto output = opts.begin();
 
-  bool solo = std::any_of(devs.begin(), devs.end(), [=](const InstanceId &i){
+  bool solo = std::any_of(devs.begin(), devs.end(), [this](const InstanceId &i){
     return settings_.chip(i).channel_solo.any();
   });
   for (const auto &i : devs) {
@@ -90,7 +90,7 @@ bool SettingsManager::WriteContext::store_in_range(T &dest, const T &src, const 
 bool SettingsManager::WriteContext::set_mute(int dev_idx, int instance, bool level,
                                              PlayerSettings::ChannelMask mask) {
   // FIXME: thinking maybe this should only mess with the "valid" bits
-  return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
+  return store_to_instance(dev_idx, instance, [level, this, mask](PlayerSettings::Chip &c) {
     PlayerSettings::ChannelMask apply;
     if (level) apply = apply.set();
     return write_value(c.channel_mute, (c.channel_mute & ~mask) | (apply & mask));
@@ -99,7 +99,7 @@ bool SettingsManager::WriteContext::set_mute(int dev_idx, int instance, bool lev
 
 bool SettingsManager::WriteContext::set_solo(int dev_idx, int instance, bool level,
                                              PlayerSettings::ChannelMask mask) {
-  return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
+  return store_to_instance(dev_idx, instance, [level, this, mask](PlayerSettings::Chip &c) {
     PlayerSettings::ChannelMask apply;
     if (level) apply = apply.set();
     return write_value(c.channel_solo, (c.channel_solo & ~mask) | (apply & mask));
@@ -108,7 +108,7 @@ bool SettingsManager::WriteContext::set_solo(int dev_idx, int instance, bool lev
 
 bool SettingsManager::WriteContext::set_disable(int dev_idx, int instance, bool level,
                                                 PlayerSettings::DisableMask mask) {
-  return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
+  return store_to_instance(dev_idx, instance, [level, this, mask](PlayerSettings::Chip &c) {
     PlayerSettings::DisableMask apply;
     if (level) apply = apply.set();
     return write_value(c.disable, (c.disable & ~mask) | (apply & mask));
@@ -117,7 +117,7 @@ bool SettingsManager::WriteContext::set_disable(int dev_idx, int instance, bool 
 
 bool SettingsManager::WriteContext::set_disable(int dev_idx, bool level,
                                                 PlayerSettings::DisableMask mask) {
-  return store_to_device(dev_idx, [=](PlayerSettings::Device &d) {
+  return store_to_device(dev_idx, [level, this, mask](PlayerSettings::Device &d) {
     PlayerSettings::DisableMask apply;
     if (level) apply = apply.set();
     bool ret = false;
@@ -129,20 +129,20 @@ bool SettingsManager::WriteContext::set_disable(int dev_idx, bool level,
 }
 
 bool SettingsManager::WriteContext::set_core(int dev_idx, uint32_t core) {
-  return store_to_device(dev_idx, [=](auto &d) {
+  return store_to_device(dev_idx, [this, core](auto &d) {
     return write_value(d.core, core);
   });
 }
 
 bool SettingsManager::WriteContext::set_core_opts(int dev_idx, uint32_t mask, uint32_t level) {
-  return store_to_device(dev_idx, [=](auto &d) {
+  return store_to_device(dev_idx, [this, mask, level](auto &d) {
     return write_value(d.core_opts, (d.core_opts & ~mask) | (level & mask));
   });
 }
 
 bool SettingsManager::WriteContext::set_panning(int dev_idx, int instance, int channel,
                                                 int16_t pan) {
-  return store_to_instance(dev_idx, instance, [=](PlayerSettings::Chip &c) {
+  return store_to_instance(dev_idx, instance, [channel, this, pan](PlayerSettings::Chip &c) {
     if (channel < 0 || channel >= c.panning.size()) return false;
     return write_value(c.panning[channel], pan);
   });

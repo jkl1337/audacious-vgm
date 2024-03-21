@@ -1,21 +1,18 @@
 #include "qvgm-player.h"
-#include "qvgm-factory.h"
 
-#include <corelib/libvgm-iface.h>
 #include <corelib/libvgm-rt.h>
-
-#include <QMouseEvent>
-#include <QShortcut>
 
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QMouseEvent>
+#include <QShortcut>
 #include <QStyledItemDelegate>
 #include <QTreeView>
 
 #include "channel-select.h"
 #include "core-selector.h"
 #include "device-select.h"
-
+#include "qvgm-factory.h"
 
 using namespace vgmqt;
 using namespace vgmtk;
@@ -68,7 +65,7 @@ class SliderDelegate : public QStyledItemDelegate {
     slider->setTickPosition(QSlider::TicksBelow);
 
     connect(slider, &QSlider::valueChanged, this,
-            [=](int) { const_cast<SliderDelegate *>(this)->commitData(slider); });
+            [this, slider](int) { const_cast<SliderDelegate *>(this)->commitData(slider); });
 
     return slider;
   }
@@ -139,7 +136,7 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
   cores->setDevice(lib_devices[35], 1);
   layout->addWidget(cores);
 
-  //auto *shortcut = new QShortcut(QKeySequence("Alt+1"), this);
+  // auto *shortcut = new QShortcut(QKeySequence("Alt+1"), this);
 }
 
 QWidget *vgmqt::create_qvgm_control_panel(PlaybackStatus &ps, SettingsManager &sm,

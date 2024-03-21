@@ -11,7 +11,7 @@ constexpr unsigned width_to_mask(unsigned width) { return (1 << width) - 1; }
 
 class NodeLocator {
  public:
-  enum NodeLevel { kLevelRoot = 0, kLevelDevice, kLevelChannel };
+  enum NodeLevel : uint8_t { kLevelRoot = 0, kLevelDevice, kLevelChannel };
 
  private:
   class NodeInternal {
@@ -40,7 +40,7 @@ class NodeLocator {
   explicit constexpr NodeLocator(const QModelIndex &mi)
       : row_(mi.isValid() ? mi.row() : 0), v_(mi.isValid() ? mi.internalId() : 0) {}
   constexpr static NodeLocator make_device(int dev_idx) {
-    return NodeLocator(dev_idx, NodeInternal(kLevelDevice, 0));
+    return {dev_idx, NodeInternal(kLevelDevice, 0)};
   }
 
   constexpr int ctx() const { return v_.ctx(); }
@@ -50,12 +50,10 @@ class NodeLocator {
   constexpr int top_idx() const { return level() == kLevelDevice ? row_ : ctx(); }
 
   NodeLocator child(int row) const {
-    return NodeLocator{row, NodeInternal{std::min<int>(level() + 1, kLevelChannel), row_}};
+    return {row, NodeInternal{std::min<int>(level() + 1, kLevelChannel), row_}};
   }
 
-  NodeLocator parent() const {
-    return NodeLocator(ctx(), NodeInternal(std::max(0, level() - 1), 0));
-  };
+  NodeLocator parent() const { return {ctx(), NodeInternal(std::max(0, level() - 1), 0)}; };
 
  private:
   int row_ = 0;
@@ -64,7 +62,7 @@ class NodeLocator {
 
 }  // namespace
 ChannelTreeModel::ChannelTreeModel(vgmtk::SettingsManager &settings_manager,
-                                   vgmtk::PlaybackStatus *playback_status, QObject *parent,
+                                   vgmtk::PlaybackStatus *playback_status, QObject *,
                                    const vgmtk::DeviceConfigList &info_list)
     : settings_manager_(settings_manager), info_list_(info_list) {
   auto hook_func = [](const vgmtk::PlaybackStatus &ps, void *ctx) {
@@ -84,8 +82,7 @@ ChannelTreeModel::ChannelTreeModel(vgmtk::SettingsManager &settings_manager,
     std::sort(now_active.begin(), now_active.end(), [](const auto &l, const auto &r) {
       return (l.dev_idx < r.dev_idx) || (l.dev_idx == r.dev_idx && l.instance < r.instance);
     });
-    if (now_active == self->active_devices_)
-      return;
+    if (now_active == self->active_devices_) return;
     self->beginResetModel();
     std::swap(self->active_devices_, now_active);
     self->endResetModel();
@@ -94,19 +91,20 @@ ChannelTreeModel::ChannelTreeModel(vgmtk::SettingsManager &settings_manager,
   if (playback_status) {
     hook_func(*playback_status, this);
     playback_status->subscribe(hook_func, this);
-    connect(this, &QObject::destroyed, this,
-            [=]() { playback_status->unsubscribe(hook_func, this); });
+    connect(this, &QObject::destroyed, this, [playback_status, hook_func, this]() {
+      playback_status->unsubscribe(hook_func, this);
+    });
   }
 }
 
 QModelIndex ChannelTreeModel::index(int row, int column, const QModelIndex &parent) const {
-  if (!hasIndex(row, column, parent)) return QModelIndex();
+  if (!hasIndex(row, column, parent)) return {};
   return createIndex(row, column, NodeLocator(parent).child(row).internal());
 }
 
 QModelIndex ChannelTreeModel::parent(const QModelIndex &index) const {
   NodeLocator node{index};
-  if (!index.isValid() || node.level() <= 1) return QModelIndex();
+  if (!index.isValid() || node.level() <= 1) return {};
 
   node = node.parent();
   return createIndex(node.row(), 0, node.internal());
@@ -144,13 +142,6 @@ bool ChannelTreeModel::setData(const QModelIndex &index, const QVariant &value, 
     dataChanged(index, index, {Qt::EditRole});
     return true;
   } else if ((column == 1 || column == 2) && role == Qt::CheckStateRole) {
-
-    if (node.level() == NodeLocator::kLevelDevice) {
-      bool changed = false;
-      bool state = value.value<Qt::CheckState>() == Qt::Checked;
-      const auto &active = active_devices_[node.top_idx()];
-    }
-
     bool changed = false;
     bool state = value.value<Qt::CheckState>() == Qt::Checked;
     const auto &active = active_devices_[node.top_idx()];
@@ -176,7 +167,8 @@ bool ChannelTreeModel::setData(const QModelIndex &index, const QVariant &value, 
     } else {
       dataChanged(index, index, roles);
       QModelIndex top_left{createIndex(0, column, NodeLocator(index).child(0).internal())},
-          bottom_right{createIndex(rowCount(index) - 1, column, NodeLocator(index).child(0).internal())};
+          bottom_right{
+              createIndex(rowCount(index) - 1, column, NodeLocator(index).child(0).internal())};
       dataChanged(top_left, bottom_right, roles);
     }
 
@@ -185,7 +177,8 @@ bool ChannelTreeModel::setData(const QModelIndex &index, const QVariant &value, 
   return false;
 }
 
-static QString channel_name(const vgmtk::DeviceConfig &dev_cfg, int idx) {
+namespace {
+QString channel_name(const vgmtk::DeviceConfig &dev_cfg, int idx) {
   static const QString kLabelChannelNum(ChannelTreeModel::tr("Channel %1"));
   static const QString kLabelGroupedChannelNum(ChannelTreeModel::tr("%1 Channel %2"));
   static const QString kLabelGroupedChannelName(ChannelTreeModel::tr("%1 %2"));
@@ -196,11 +189,10 @@ static QString channel_name(const vgmtk::DeviceConfig &dev_cfg, int idx) {
       // FIXME: This isn't quite right
       const char *group = link_group ? link_group : cs.name();
       if (idx < cs.serial) {
-        return group ? kLabelGroupedChannelNum.arg(group).arg(idx + 1)
-                     : kLabelChannelNum.arg(idx + 1);
+        return group ? kLabelGroupedChannelNum.arg(group).arg(idx + 1) : kLabelChannelNum.arg(idx + 1);
       } else if (idx < cs.serial + cs.named.size()) {
         idx -= cs.serial;
-        return group ? kLabelGroupedChannelName.arg(group).arg(cs.named[idx])
+        return group ? kLabelGroupedChannelName.arg(group, cs.named[idx])
                      : ChannelTreeModel::tr(cs.named[idx]);
       }
       idx -= cs.serial + cs.named.size();
@@ -208,11 +200,12 @@ static QString channel_name(const vgmtk::DeviceConfig &dev_cfg, int idx) {
     link_group = d->linked.prefix[0] ? d->linked.prefix : nullptr;
     d = d->linked_config();
   }
-  return QString("");
+  return {""};
 }
+}  // namespace
 
 QVariant ChannelTreeModel::data(const QModelIndex &index, int role) const {
-  if (!index.isValid()) return QVariant();
+  if (!index.isValid()) return {};
 
   NodeLocator node{index};
   const int row = index.row(), column = index.column();
@@ -221,23 +214,23 @@ QVariant ChannelTreeModel::data(const QModelIndex &index, int role) const {
 
   switch (role) {
     case Qt::EditRole:
-      if (column != 3) return QVariant();
+      if (column != 3) return {};
       {
         const auto &chip = settings_manager_.current().chip(active);
-        return QVariant(chip.panning[row]);
+        return {chip.panning[row]};
       }
     case Qt::DisplayRole:
-      if (column != 0) return QVariant();
+      if (column != 0) return {};
       switch (node.level()) {
         case NodeLocator::kLevelDevice:
           return QString("%1 %2").arg(dev_info.label).arg(active.instance + 1);
         case NodeLocator::kLevelChannel:
           return channel_name(dev_info, row);
         default:
-          return QVariant();
+          return {};
       }
     case Qt::CheckStateRole: {
-      if (column != 1 && column != 2) return QVariant();
+      if (column != 1 && column != 2) return {};
       auto dev_settings = settings_manager_.current().devices[active.dev_idx];
       const auto &chip = dev_settings.chips[active.instance];
       const auto &state = column == 1 ? chip.channel_mute : chip.channel_solo;
@@ -254,10 +247,8 @@ QVariant ChannelTreeModel::data(const QModelIndex &index, int role) const {
       }
     }
     default:
-      return QVariant();
+      return {};
   }
-
-  return QVariant();
 }
 
 Qt::ItemFlags ChannelTreeModel::flags(const QModelIndex &index) const {
@@ -266,7 +257,7 @@ Qt::ItemFlags ChannelTreeModel::flags(const QModelIndex &index) const {
   NodeLocator node{index};
   const auto &dev_info = info_list_[active_devices_[node.top_idx()].dev_idx];
 
-  Qt::ItemFlags flags = Qt::NoItemFlags;
+  Qt::ItemFlags flags;
 
   switch (node.level()) {
     case NodeLocator::kLevelChannel:
@@ -278,8 +269,7 @@ Qt::ItemFlags ChannelTreeModel::flags(const QModelIndex &index) const {
           break;
         case 3:
           // FIXME: want this based on the current core
-          if (dev_info.has_panning())
-            flags |= Qt::ItemIsEditable;
+          if (dev_info.has_panning()) flags |= Qt::ItemIsEditable;
           break;
         default:
         case 0:
@@ -311,5 +301,5 @@ QVariant ChannelTreeModel::headerData(int section, Qt::Orientation orientation, 
       section < labels.size())
     return labels[section];
 
-  return QVariant();
+  return {};
 }

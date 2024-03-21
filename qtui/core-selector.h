@@ -30,8 +30,8 @@ class CoresWidget : public QWidget {
   void coreChanged(unsigned long);
 
  private:
-  std::array<QRadioButton *, 3> buttons_;
-  std::array<uint32_t, 3> cores_;
+  std::array<QRadioButton *, 3> buttons_{};
+  std::array<uint32_t, 3> cores_{};
 
   unsigned long core_;
 };

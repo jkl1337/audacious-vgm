@@ -4,7 +4,6 @@
 
 #include <QtCore/QAbstractItemModel>
 
-#include "../corelib/libvgm-dev-meta.h"
 #include "../corelib/libvgm-rt.h"
 
 using namespace vgmqt;
@@ -15,7 +14,7 @@ constexpr unsigned width_to_mask(unsigned width) { return (1 << width) - 1; }
 
 class NodeLocator {
  public:
-  enum NodeLevel { kLevelRoot = 0, kLevelDevice, kLevelInstance, kLevelLinked };
+  enum NodeLevel : uint8_t { kLevelRoot = 0, kLevelDevice, kLevelInstance, kLevelLinked };
 
  private:
   class NodeInternal {
@@ -48,10 +47,10 @@ class NodeLocator {
   explicit constexpr NodeLocator(const QModelIndex& mi)
       : row_(mi.isValid() ? mi.row() : 0), v_(mi.isValid() ? mi.internalId() : 0) {}
   constexpr static NodeLocator make_device(int dev_idx) {
-    return NodeLocator(dev_idx, NodeInternal(kLevelDevice, dev_idx, 0));
+    return {dev_idx, NodeInternal(kLevelDevice, dev_idx, 0)};
   }
   constexpr static NodeLocator make_instance(int dev_idx, int instance) {
-    return NodeLocator(instance, NodeInternal(kLevelInstance, dev_idx, instance));
+    return {instance, NodeInternal(kLevelInstance, dev_idx, instance)};
   }
 
   constexpr int instance() const { return v_.instance(); }
@@ -87,16 +86,15 @@ class NodeLocator {
       default:
         break;
     }
-    return NodeLocator(row, NodeInternal(p_level, p_dev_idx, p_instance));
+    return {row, NodeInternal(p_level, p_dev_idx, p_instance)};
   };
 
  private:
   int row_ = 0;
   NodeInternal v_;
 };
-}  // namespace
 
-static int tree_child_count(const vgmtk::DeviceConfigList& info_list, const NodeLocator& loc) {
+int tree_child_count(const vgmtk::DeviceConfigList& info_list, const NodeLocator& loc) {
   const vgmtk::DeviceConfig& c = info_list[loc.dev_idx()];
 
   switch (loc.level()) {
@@ -112,9 +110,11 @@ static int tree_child_count(const vgmtk::DeviceConfigList& info_list, const Node
   }
 }
 
-constexpr static bool playing_device_comp(const PlayingDevice& lhs, const PlayingDevice& rhs) {
+constexpr bool playing_device_comp(const PlayingDevice& lhs, const PlayingDevice& rhs) {
   return lhs.dev_idx < rhs.dev_idx || (lhs.dev_idx == rhs.dev_idx && lhs.instance < rhs.instance);
 }
+
+}  // namespace
 
 DeviceTreeModel::DeviceTreeModel(vgmtk::SettingsManager& settings_manager,
                                  vgmtk::PlaybackStatus& playback_status, QObject* parent,
@@ -164,13 +164,13 @@ DeviceTreeModel::DeviceTreeModel(vgmtk::SettingsManager& settings_manager,
 }
 
 QModelIndex DeviceTreeModel::index(int row, int column, const QModelIndex& parent) const {
-  if (!hasIndex(row, column, parent)) return QModelIndex();
+  if (!hasIndex(row, column, parent)) return {};
   return createIndex(row, column, NodeLocator(parent).child(row).internal());
 }
 
 QModelIndex DeviceTreeModel::parent(const QModelIndex& index) const {
   NodeLocator node{index};
-  if (!index.isValid() || node.level() <= 1) return QModelIndex();
+  if (!index.isValid() || node.level() <= 1) return {};
 
   node = node.parent();
   return createIndex(node.row(), 0, node.internal());
@@ -231,7 +231,7 @@ void DeviceTreeModel::data_changed_helper(const QModelIndex& p, const QVector<in
 
   NodeLocator node{p};
 
-  // notify all this nodes children
+  // notify all this node's children
   QModelIndex start{createIndex(0, 0, node.child(0).internal())},
       end{createIndex(row_count - 1, 0, node.child(row_count - 1).internal())};
   dataChanged(start, end, roles);
@@ -255,7 +255,7 @@ static QString instance_row_display(const std::vector<PlayingDevice>& pd, const 
 }
 
 QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
-  if (!index.isValid()) return QVariant();
+  if (!index.isValid()) return {};
 
   NodeLocator node{index};
   const int row = index.row();
@@ -265,7 +265,7 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
     if (role == Qt::DisplayRole && node.level() == NodeLocator::kLevelDevice) {
       return dev_info.core_name();
     }
-    return QVariant();
+    return {};
   }
 
   switch (role) {
@@ -278,7 +278,7 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
         case NodeLocator::kLevelLinked:
           return dev_info.linked.prefix;
         default:
-          return QVariant();
+          return {};
       }
     }
 
@@ -342,7 +342,7 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
       return playing;
     }
     default:
-      return QVariant();
+      return {};
   }
 }
 
@@ -359,7 +359,6 @@ Qt::ItemFlags DeviceTreeModel::flags(const QModelIndex& index) const {
       return Qt::ItemIsSelectable | checkable | Qt::ItemIsEnabled |
              (!info_list_[node.dev_idx()].has_linked() ? Qt::ItemNeverHasChildren
                                                        : Qt::NoItemFlags);
-      break;
     default:
     case NodeLocator::kLevelDevice:
       return Qt::ItemIsSelectable | checkable | Qt::ItemIsEnabled;
@@ -368,10 +367,11 @@ Qt::ItemFlags DeviceTreeModel::flags(const QModelIndex& index) const {
 
 QVariant DeviceTreeModel::headerData(int section, Qt::Orientation orientation, int role) const {
   static const std::array<const QString, 2> labels = {tr("Name"), tr("Core")};
-  if (orientation == Qt::Horizontal && role == Qt::DisplayRole && section >= 0 && section < labels.size())
+  if (orientation == Qt::Horizontal && role == Qt::DisplayRole && section >= 0 &&
+      section < labels.size())
     return labels[section];
 
-  return QVariant();
+  return {};
 }
 
 bool DeviceTreeFiltered::filterAcceptsRow(int source_row, const QModelIndex& source_parent) const {
