@@ -4,12 +4,11 @@
 #include <atomic>
 #include <cstring>
 #include <functional>
+#include <libvgm/player/playerbase.hpp>
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <vector>
-
-#include <libvgm/player/playerbase.hpp>
 
 #include "libvgm-iface.h"
 #include "types.h"
@@ -21,11 +20,13 @@ class SettingsManager {
   class WriteContext {
    public:
     WriteContext(PlayerSettings &backend, std::atomic_bool &flag, std::shared_mutex &m)
-        : backend_(backend), notify_(flag), changed_(false), lock_(m) {}
+        : backend_(backend), notify_(flag), lock_(m) {}
 
     ~WriteContext() {
       if (changed_) notify_.store(true, std::memory_order_release);
     }
+    WriteContext(const WriteContext &) = delete;
+    WriteContext &operator=(const WriteContext &) = delete;
 
     bool set_mute(int dev_idx, int instance, bool level, PlayerSettings::ChannelMask mask);
     bool set_solo(int dev_idx, int instance, bool level, PlayerSettings::ChannelMask mask);
@@ -44,7 +45,7 @@ class SettingsManager {
    private:
     using holder = std::unique_lock<std::shared_mutex>;
     PlayerSettings &backend_;
-    bool changed_;
+    bool changed_{false};
     std::atomic_bool &notify_;
     holder lock_;
 
@@ -52,10 +53,10 @@ class SettingsManager {
     bool write_value(T &dest, const T &src);
 
     template <typename Func>
-    bool store_to_device(int dev_idx, Func f);
+    bool store_to_device(int dev_idx, Func &&f);
 
     template <typename Func>
-    bool store_to_instance(int dev_idx, int instance, Func f);
+    bool store_to_instance(int dev_idx, int instance, Func &&f);
 
     template <typename T, typename C>
     bool store_in_range(T &dest, const T &src, const C &lo, const C &hi);
@@ -73,11 +74,12 @@ class SettingsManager {
     const std::vector<int16_t> &get_panning_opt(const InstanceId &i) const {
       return settings_.chip(i).panning;
     }
-
-   private:
+    ReadContext(const ReadContext &) = delete;
+    ReadContext &operator=(const ReadContext &) = delete;
     ReadContext(const PlayerSettings &settings, std::shared_lock<std::shared_mutex> lock)
         : settings_(settings), lock_(std::move(lock)) {}
-    friend class SettingsManager;
+
+   private:
     using holder = std::shared_lock<std::shared_mutex>;
     const PlayerSettings &settings_;
     holder lock_;
@@ -85,19 +87,19 @@ class SettingsManager {
 
   using OptReadContext = std::optional<ReadContext>;
 
-  WriteContext writer() { return WriteContext(current_, notify_, mutex_); }
+  WriteContext writer() { return {current_, notify_, mutex_}; }
   OptReadContext read() const {
-    if (!notify_.load(std::memory_order_acquire)) return OptReadContext();
+    if (!notify_.load(std::memory_order_acquire)) return {};
 
     std::shared_lock lock(mutex_, std::try_to_lock);
-    if (!lock.owns_lock()) return OptReadContext();
+    if (!lock.owns_lock()) return {};
     notify_.store(false, std::memory_order_relaxed);
-    return ReadContext(current_, std::move(lock));
+    return OptReadContext(std::in_place, current_, std::move(lock));
   }
   ReadContext read_always() const {
     std::shared_lock lock(mutex_);
     notify_.store(false, std::memory_order_relaxed);
-    return ReadContext(current_, std::move(lock));
+    return {current_, std::move(lock)};
   }
 
   explicit SettingsManager(PlayerSettings ps) : notify_(false), current_(std::move(ps)) {}

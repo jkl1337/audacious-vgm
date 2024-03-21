@@ -59,7 +59,7 @@ bool SettingsManager::WriteContext::write_value(T &dest, const T &src) {
 }
 
 template <typename Func>
-bool SettingsManager::WriteContext::store_to_device(int dev_idx, Func f) {
+bool SettingsManager::WriteContext::store_to_device(int dev_idx, Func &&f) {
   if (dev_idx < 0 || dev_idx >= backend_.devices.size()) {
     return false;
   }
@@ -67,7 +67,7 @@ bool SettingsManager::WriteContext::store_to_device(int dev_idx, Func f) {
 }
 
 template <typename Func>
-bool SettingsManager::WriteContext::store_to_instance(int dev_idx, int instance, Func f) {
+bool SettingsManager::WriteContext::store_to_instance(int dev_idx, int instance, Func &&f) {
   if (dev_idx < 0 || dev_idx >= backend_.devices.size() || instance < 0
       || instance >= vgmtk::kNumInstances) {
     return false;
