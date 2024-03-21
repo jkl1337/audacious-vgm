@@ -1,5 +1,5 @@
-#ifndef AUDVGM__VFS_LOADER_H_
-#define AUDVGM__VFS_LOADER_H_
+#ifndef AUDVGM_VFS_LOADER_H_
+#define AUDVGM_VFS_LOADER_H_
 
 #include <memory>
 
@@ -40,7 +40,7 @@ class VFSLoader {
 
 class FileHandler {
  public:
-  enum FileType {
+  enum FileType : uint8_t {
     kTypeNone = 0,
     kTypeVGM,
     kTypeDRO,
@@ -49,7 +49,7 @@ class FileHandler {
 
   bool load();
 
-  explicit FileHandler(VFSFile &fd);
+  explicit FileHandler(VFSFile &file);
 
   PlayerBase *player() const { return player_.get(); }
   VGMPlayer *vgm_player() const;
@@ -62,4 +62,4 @@ class FileHandler {
 
 }  // namespace vgm
 
-#endif  // AUDVGM__VFS_LOADER_H_
+#endif  // AUDVGM_VFS_LOADER_H_

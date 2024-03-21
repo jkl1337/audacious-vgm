@@ -5,15 +5,12 @@
 #include <memory>
 
 #define WANT_VFS_STDIO_COMPAT
-#include <libaudcore/audstrings.h>
 #include <libaudcore/runtime.h>
 #include <libaudcore/vfs.h>
 
 #include "gzfile.h"
 #include "log.h"
 #include <libvgm/player/vgmplayer.hpp>
-#include <libvgm/stdtype.h>
-#include <libvgm/utils/DataLoader.h>
 
 using namespace vgmtk;
 
@@ -59,7 +56,7 @@ class vgmtk::VFSLoaderOps {
 
 class GZLoaderOps : public VFSLoaderOps {
  public:
-  explicit GZLoaderOps(VFSFile *file) : VFSLoaderOps(file), gz_file_(file), length_(-1) {}
+  explicit GZLoaderOps(VFSFile *file) : VFSLoaderOps(file), gz_file_(file) {}
 
   bool open() { return gz_file_.open(); }
 
@@ -97,7 +94,7 @@ class GZLoaderOps : public VFSLoaderOps {
   }
 
   GzFile gz_file_;
-  mutable uint32_t length_;
+  mutable uint32_t length_{UINT32_MAX};
 };
 
 UINT8 VFSLoader::open() {
@@ -158,36 +155,30 @@ UINT8 VFSLoader::eof() const {
 constexpr const DATA_LOADER_CALLBACKS VFSLoader::callbacks = {
     0x56465346,  // "VFSF"
     "VFS Loader",
-    [](void *ctx) { return (*static_cast<VFSLoader **>(ctx))->open(); },
-    [](void *ctx, UINT8 *buf, UINT32 nb) {
-      return (*static_cast<VFSLoader **>(ctx))->read(buf, nb);
+    [](void *ctx) { return (static_cast<VFSLoader *>(ctx))->open(); },
+    [](void *ctx, UINT8 *buf, UINT32 nbytes) {
+      return (static_cast<VFSLoader *>(ctx))->read(buf, nbytes);
     },
     [](void *ctx, UINT32 ofs, UINT8 whence) {
-      return (*static_cast<VFSLoader **>(ctx))->seek(ofs, whence);
+      return (static_cast<VFSLoader *>(ctx))->seek(ofs, whence);
     },
-    [](void *ctx) { return (*static_cast<VFSLoader **>(ctx))->close(); },
-    [](void *ctx) { return (*static_cast<VFSLoader **>(ctx))->tell(); },
-    [](void *ctx) { return (*static_cast<VFSLoader **>(ctx))->length(); },
-    [](void *ctx) { return (*static_cast<VFSLoader **>(ctx))->eof(); }};
+    [](void *ctx) { return (static_cast<VFSLoader *>(ctx))->close(); },
+    [](void *ctx) { return (static_cast<VFSLoader *>(ctx))->tell(); },
+    [](void *ctx) { return (static_cast<VFSLoader *>(ctx))->length(); },
+    [](void *ctx) { return (static_cast<VFSLoader *>(ctx))->eof(); },
+[](void *) {}};
 
 VFSLoader::VFSLoader(VFSFile &file) : file_(file), libvgm_loader_(nullptr) {
   auto *loader = static_cast<DATA_LOADER *>(calloc(1, sizeof(DATA_LOADER)));
   if (!loader) throw std::bad_alloc();
-  // damn library - it will free the ctx
-  auto *ctx = static_cast<VFSLoader **>(malloc(sizeof(VFSLoader **)));
-  if (!ctx) {
-    free(loader);
-    throw std::bad_alloc();
-  }
   libvgm_loader_ = loader;
-  *ctx = this;
-  DataLoader_Setup(loader, &VFSLoader::callbacks, ctx);
+  DataLoader_Setup(loader, &VFSLoader::callbacks, this);
 }
 
 VFSLoader::~VFSLoader() { DataLoader_Deinit(libvgm_loader_); }
 
-FileHandler::FileHandler(VFSFile& fd)
-    : loader_(fd) {
+FileHandler::FileHandler(VFSFile& file)
+    : loader_(file) {
   DataLoader_SetPreloadBytes(loader_.libvgm_loader(), 0x100);
 }
 
