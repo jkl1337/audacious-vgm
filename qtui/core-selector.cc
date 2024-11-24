@@ -17,9 +17,9 @@ CoresWidget::CoresWidget(QWidget *parent) : QWidget(parent) {
     button->setVisible(false);
 
     auto toggle_handler = [idx, this](bool checked) {
-        if (!checked) return;
-        core_ = cores_[idx];
-        coreChanged(core_);
+      if (!checked) return;
+      core_ = cores_[idx];
+      coreChanged(core_);
     };
     connect(button, &QAbstractButton::toggled, this, toggle_handler);
     ++idx;
@@ -39,8 +39,8 @@ CoresWidget::CoresWidget(QWidget *parent) : QWidget(parent) {
   vbox->addStretch(1);
 }
 
-void CoresWidget::setDevice(const vgmtk::DeviceConfig &config, int select) {
-  int i = 0;
+void CoresWidget::setDevice(const vgmtk::DeviceConfig &config, size_t select) {
+  size_t i{};
   for (const auto &c : config.cores) {
     auto *const button = buttons_[i];
     button->setText(c.label[0] ? c.label : core_name(c.core));

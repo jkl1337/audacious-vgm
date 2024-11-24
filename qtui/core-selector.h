@@ -5,10 +5,9 @@
 #ifndef VGMTK_CORE_SELECTOR_H
 #define VGMTK_CORE_SELECTOR_H
 
-#include <array>
-
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QWidget>
+#include <array>
 
 namespace vgmtk {
 class DeviceConfig;
@@ -22,7 +21,7 @@ class CoresWidget : public QWidget {
  public:
   explicit CoresWidget(QWidget *parent = nullptr);
 
-  void setDevice(const vgmtk::DeviceConfig &config, int select);
+  void setDevice(const vgmtk::DeviceConfig &config, size_t select);
 
   Q_PROPERTY(unsigned long coreSelected MEMBER core_ NOTIFY coreChanged)
 

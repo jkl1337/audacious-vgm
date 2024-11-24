@@ -57,8 +57,8 @@ class SliderDelegate : public QStyledItemDelegate {
     return true;
   }
 
-  QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
-                        const QModelIndex &index) const override {
+  QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &,
+                        const QModelIndex &) const override {
     auto *slider = new QSlider(Qt::Horizontal, parent);
     slider->setRange(-256, 256);
     slider->setTickInterval(64);
@@ -70,10 +70,9 @@ class SliderDelegate : public QStyledItemDelegate {
     return slider;
   }
 
-  void paint(QPainter *painter, const QStyleOptionViewItem &option,
-             const QModelIndex &index) const override {}
+  void paint(QPainter *, const QStyleOptionViewItem &, const QModelIndex &) const override {}
 
-  QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+  QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override {
     return sizeHint_;
   }
 };
@@ -91,12 +90,12 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
   tree_view->setItemDelegate(new DeviceListViewItemDelegate(tree_view));
   auto *model = new vgmqt::DeviceTreeModel(settings_manager, playback_status, tree_view);
 
-  auto *filter_model = new vgmqt::DeviceTreeFiltered(model);
-  filter_model->setSourceModel(model);
+  // auto *filter_model = new vgmqt::DeviceTreeFiltered(model);
+  // filter_model->setSourceModel(model);
 
   tree_view->setSortingEnabled(false);
   tree_view->setMinimumHeight(600);
-  tree_view->setModel(filter_model);
+  tree_view->setModel(model);
   // tree_view->expandRecursively(QModelIndex(), 1);
   tree_view->setUniformRowHeights(true);
   tree_view->setTextElideMode(Qt::ElideNone);

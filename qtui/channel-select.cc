@@ -39,9 +39,7 @@ class NodeLocator {
   constexpr NodeLocator(int row, NodeInternal v) : row_(row), v_(v) {}
   explicit constexpr NodeLocator(const QModelIndex &mi)
       : row_(mi.isValid() ? mi.row() : 0), v_(mi.isValid() ? mi.internalId() : 0) {}
-  constexpr static NodeLocator make_device(int dev_idx) {
-    return {dev_idx, NodeInternal(kLevelDevice, 0)};
-  }
+  constexpr static NodeLocator make_device(int dev_idx) { return {dev_idx, {kLevelDevice, 0}}; }
 
   constexpr int ctx() const { return v_.ctx(); }
   constexpr NodeLevel level() const { return static_cast<NodeLevel>(v_.level()); }
@@ -50,10 +48,10 @@ class NodeLocator {
   constexpr int top_idx() const { return level() == kLevelDevice ? row_ : ctx(); }
 
   NodeLocator child(int row) const {
-    return {row, NodeInternal{std::min<int>(level() + 1, kLevelChannel), row_}};
+    return {row, {std::min<int>(level() + 1, kLevelChannel), row_}};
   }
 
-  NodeLocator parent() const { return {ctx(), NodeInternal(std::max(0, level() - 1), 0)}; };
+  NodeLocator parent() const { return {ctx(), {std::max(0, level() - 1), 0}}; };
 
  private:
   int row_ = 0;
@@ -189,7 +187,8 @@ QString channel_name(const vgmtk::DeviceConfig &dev_cfg, int idx) {
       // FIXME: This isn't quite right
       const char *group = link_group ? link_group : cs.name();
       if (idx < cs.serial) {
-        return group ? kLabelGroupedChannelNum.arg(group).arg(idx + 1) : kLabelChannelNum.arg(idx + 1);
+        return group ? kLabelGroupedChannelNum.arg(group).arg(idx + 1)
+                     : kLabelChannelNum.arg(idx + 1);
       } else if (idx < cs.serial + cs.named.size()) {
         idx -= cs.serial;
         return group ? kLabelGroupedChannelName.arg(group, cs.named[idx])

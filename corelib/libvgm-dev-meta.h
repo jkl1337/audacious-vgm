@@ -1,8 +1,8 @@
 #ifndef VGM_DEV_META_H_
 #define VGM_DEV_META_H_
 
-#include <cstddef>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -52,7 +52,7 @@ struct ChannelGroup {
   const char group[8] = {};
 
   constexpr bool valid() const { return serial || named.len; }
-  constexpr const char* name() const { return group[0] ? group : nullptr; }
+  constexpr const char *name() const { return group[0] ? group : nullptr; }
 };
 
 struct SwitchOption {
@@ -114,7 +114,8 @@ class DeviceConfigList;
 extern const std::size_t num_devices;
 extern const DeviceConfigList lib_devices;
 
-struct DeviceConfig {
+class DeviceConfig {
+ public:
   uint_least32_t devid = kCoreInvalid;
   const char label[12] = {};
 
@@ -186,6 +187,7 @@ class DeviceConfigList : public ArrayRef<DeviceConfig> {
 template <class Container, class Element = typename Container::value_type>
 struct DevInfoRange {
   Container &v;
+
  public:
   template <class TElem>
   struct Tuple {
@@ -197,18 +199,22 @@ struct DevInfoRange {
   class IterT {
     BaseIterator it;
     typename Container::difference_type idx;
-   public:
 
+   public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type = long;
     using value_type = ValueType;
     using pointer = void;
     using reference = void;
 
-    explicit constexpr IterT(BaseIterator it, typename Container::difference_type idx = 0) : it(it), idx(idx) {}
-    constexpr value_type operator*() const { return value_type{ *it, vgmtk::lib_devices[idx]}; }
-    bool operator!=(const IterT & other) const { return it != other.it; }
-    void operator++() { it++; idx++; }
+    explicit constexpr IterT(BaseIterator it, typename Container::difference_type idx = 0)
+        : it(it), idx(idx) {}
+    constexpr value_type operator*() const { return value_type{*it, vgmtk::lib_devices[idx]}; }
+    bool operator!=(const IterT &other) const { return it != other.it; }
+    void operator++() {
+      it++;
+      idx++;
+    }
   };
   using iterator = IterT<typename Container::iterator, Tuple<Element>>;
   using const_iterator = IterT<typename Container::const_iterator, Tuple<const Element>>;
@@ -216,13 +222,15 @@ struct DevInfoRange {
 
   explicit DevInfoRange(Container &v) : v(v) {}
 
-  constexpr iterator begin() { return iterator{ v.begin() }; }
-  constexpr iterator end() { return iterator{ v.end(), std::distance(v.begin(), v.end())};}
-  constexpr const_iterator begin() const { return const_iterator{ v.cbegin() }; }
-  constexpr const_iterator end() const { return const_iterator{ v.cend(), std::distance(v.cbegin(), v.cend())};}
+  constexpr iterator begin() { return iterator{v.begin()}; }
+  constexpr iterator end() { return iterator{v.end(), std::distance(v.begin(), v.end())}; }
+  constexpr const_iterator begin() const { return const_iterator{v.cbegin()}; }
+  constexpr const_iterator end() const {
+    return const_iterator{v.cend(), std::distance(v.cbegin(), v.cend())};
+  }
   constexpr const DevInfoRange &crange() const noexcept { return *this; }
 };
 
-}  // namespace vgm
+}  // namespace vgmtk
 
 #endif  // VGM_DEV_META_H_

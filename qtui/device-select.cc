@@ -47,10 +47,10 @@ class NodeLocator {
   explicit constexpr NodeLocator(const QModelIndex& mi)
       : row_(mi.isValid() ? mi.row() : 0), v_(mi.isValid() ? mi.internalId() : 0) {}
   constexpr static NodeLocator make_device(int dev_idx) {
-    return {dev_idx, NodeInternal(kLevelDevice, dev_idx, 0)};
+    return {dev_idx, {kLevelDevice, dev_idx, 0}};
   }
   constexpr static NodeLocator make_instance(int dev_idx, int instance) {
-    return {instance, NodeInternal(kLevelInstance, dev_idx, instance)};
+    return {instance, {kLevelInstance, dev_idx, instance}};
   }
 
   constexpr int instance() const { return v_.instance(); }
@@ -63,12 +63,12 @@ class NodeLocator {
     int new_level = std::min<int>(level() + 1, kLevelLinked);
     switch (new_level) {
       case kLevelDevice:
-        return NodeLocator{row, NodeInternal{new_level, row, 0}};
+        return {row, {new_level, row, 0}};
       case kLevelInstance:
-        return NodeLocator{row, NodeInternal{new_level, dev_idx(), row}};
+        return {row, {new_level, dev_idx(), row}};
       default:
       case kLevelLinked:
-        return NodeLocator{row, NodeInternal{new_level, dev_idx(), instance()}};
+        return {row, {new_level, dev_idx(), instance()}};
     }
   }
 
