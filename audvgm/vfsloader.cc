@@ -78,22 +78,22 @@ class GZLoaderOps : public VFSLoaderOps {
     auto *file = gz_file_.file();
     if (!file) return -1;
 
-    auto pos = file->ftell();
+    const auto pos = file->ftell();
     if (pos < 0) return -1;
     if (file->fseek(-4, VFS_SEEK_END) < 0) return -1;
     uint8_t buf[4];
-    auto bytes_read = file->fread(buf, 0x01, 4);
-    auto file_length = file->ftell();
+    const auto bytes_read = file->fread(buf, 0x01, 4);
+    const auto file_length = file->ftell();
     if (file->fseek(pos, VFS_SEEK_SET) < 0) return -1;
     if (bytes_read != 4) return -1;
 
-    auto length = unpack_le32(buf);
+    const auto length = unpack_le32(buf);
     if (file_length == -1 || length < file_length / 2) return -1;
     return length_ = length;
   }
 
  private:
-  static inline uint32_t unpack_le32(const unsigned char *data) {
+  static uint32_t unpack_le32(const unsigned char *data) {
     return data[0x03] << 24 | data[0x02] << 16 | data[0x01] << 8 | data[0x00] << 0;
   }
 
@@ -148,7 +148,7 @@ class VFSLoader : public DATA_LOADER {
   static const DATA_LOADER_CALLBACKS callbacks;
 };
 
-constexpr const DATA_LOADER_CALLBACKS VFSLoader::callbacks = {
+constexpr DATA_LOADER_CALLBACKS VFSLoader::callbacks = {
     0x56465346,  // "VFSF"
     "VFS Loader",
     [](void *ctx) { return (static_cast<VFSLoader *>(ctx))->open(); },
@@ -235,14 +235,14 @@ VGMPlayer *FileHandler::vgm_player() const {
 FileHandler::FileType FileHandler::probe_file() const {
   loader_->open();
   auto offset = loader_->tell();
-  if (offset != 0) return kTypeNone;
+  if (offset != 0) return FileType::none;
 
   constexpr UINT8 vgm_magic[5] = "Vgm ";
   UINT8 buffer[4];
   UINT32 bytes_read = loader_->read(buffer, 4);
   // ReSharper disable once CppExpressionWithoutSideEffects
   loader_->seek(0, SEEK_SET);
-  if (bytes_read != sizeof buffer) return kTypeNone;
-  if (!std::memcmp(buffer, vgm_magic, sizeof buffer)) return kTypeVGM;
-  return kTypeNone;
+  if (bytes_read != sizeof buffer) return FileType::none;
+  if (!std::memcmp(buffer, vgm_magic, sizeof buffer)) return FileType::VGM;
+  return FileType::none;
 }

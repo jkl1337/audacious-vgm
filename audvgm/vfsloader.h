@@ -18,11 +18,11 @@ class VFSLoader;
 
 class FileHandler {
  public:
-  enum FileType : uint8_t {
-    kTypeNone = 0,
-    kTypeVGM,
-    kTypeDRO,
-    kTypeS98
+  enum class FileType : uint8_t {
+    none = 0,
+    VGM,
+    DRO,
+    S98
   };
 
   bool load();

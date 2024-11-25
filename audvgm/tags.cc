@@ -103,7 +103,7 @@ bool Plugin::read_tag(const char *, VFSFile &file, Tuple &tuple, Index<char> *) 
 
 bool Plugin::is_our_file(const char *, VFSFile &file) {
   FileHandler fh(file);
-  return fh.probe_file() == FileHandler::kTypeVGM;
+  return fh.probe_file() == FileHandler::FileType::VGM;
 }
 
 }  // namespace vgmtk
