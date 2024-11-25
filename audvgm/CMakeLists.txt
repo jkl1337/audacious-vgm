@@ -4,9 +4,6 @@ project(audvgm)
 
 include(FindPkgConfig)
 
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
-
 pkg_search_module(audacious REQUIRED IMPORTED_TARGET audacious>=3.9)
 
 find_library(AUDQT audqt)

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
-set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0063 NEW) # visibility properties
+set(CMAKE_POLICY_DEFAULT_CMP0069 NEW) # LTO
 
 project(vgmtk)
 
@@ -22,6 +23,9 @@ check_ipo_supported(RESULT ipo_supported)
 if (ipo_supported)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif ()
+
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
 set(LIBRARY_TYPE OBJECT)
 add_subdirectory(libvgm EXCLUDE_FROM_ALL)
