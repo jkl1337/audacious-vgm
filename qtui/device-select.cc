@@ -26,31 +26,34 @@ class NodeLocator {
 
  private:
   class NodeInternal {
-    static constexpr unsigned kDevIdxStart = 0, kDevIdxWidth = 9, kInstanceStart = kDevIdxWidth,
-                              kInstanceWidth = 5, kLevelStart = kInstanceStart + kInstanceWidth,
-                              kLevelWidth = 2;
-    static_assert(kDevIdxWidth + kInstanceWidth + kLevelWidth <= 16, "locator bitfield too wide");
-
-    static constexpr unsigned kLevelMask = width_to_mask(kLevelWidth),
-                              kDevIdxMask = width_to_mask(kDevIdxWidth),
-                              kInstanceMask = width_to_mask(kInstanceWidth);
-
     uint_fast16_t loc_;
+
+    static constexpr unsigned dev_idx_bit_pos = 0, dev_idx_bit_width = 9,
+                              instance_bit_pos = dev_idx_bit_width, instance_bit_width = 5,
+                              level_bit_pos = instance_bit_pos + instance_bit_width,
+                              level_bit_width = 2;
+    static_assert(dev_idx_bit_width + instance_bit_width + level_bit_width <=
+                      std::numeric_limits<decltype(loc_)>::digits,
+                  "locator bitfield too wide");
+
+    static constexpr unsigned level_bit_mask = width_to_mask(level_bit_width),
+                              dev_idx_bit_mask = width_to_mask(dev_idx_bit_width),
+                              instance_bit_mask = width_to_mask(instance_bit_width);
 
    public:
     explicit constexpr NodeInternal(uintptr_t v = 0) : loc_(v) {}
     constexpr NodeInternal(NodeLevel level, int dev_idx, int instance)
-        : loc_(((static_cast<uint8_t>(level) & kLevelMask) << kLevelStart) |
-               ((dev_idx & kDevIdxMask) << kDevIdxStart) |
-               ((instance & kInstanceMask) << kInstanceStart)) {}
+        : loc_(((static_cast<uint16_t>(level) & level_bit_mask) << level_bit_pos) |
+               ((dev_idx & dev_idx_bit_mask) << dev_idx_bit_pos) |
+               ((instance & instance_bit_mask) << instance_bit_pos)) {}
 
     constexpr operator uintptr_t() const { return loc_; }
 
     constexpr NodeLevel level() const {
-      return static_cast<NodeLevel>((loc_ >> kLevelStart) & kLevelMask);
+      return static_cast<NodeLevel>((loc_ >> level_bit_pos) & level_bit_mask);
     }
-    constexpr int instance() const { return (loc_ >> kInstanceStart) & kInstanceMask; }
-    constexpr int dev_idx() const { return (loc_ >> kDevIdxStart) & kDevIdxMask; }
+    constexpr int instance() const { return (loc_ >> instance_bit_pos) & instance_bit_mask; }
+    constexpr int dev_idx() const { return (loc_ >> dev_idx_bit_pos) & dev_idx_bit_mask; }
   };
 
  public:
@@ -171,7 +174,8 @@ DeviceTreeModel::DeviceTreeModel(vgmtk::SettingsManager& settings_manager,
   hook_func(playback_status, this);
 
   playback_status.subscribe(hook_func, this);
-  connect(this, &QObject::destroyed, this, [&]() { playback_status.unsubscribe(hook_func, this); }); // NOLINT(*-unused-return-value)
+  // NOLINTNEXTLINE(*-unused-return-value)
+  connect(this, &QObject::destroyed, this, [&]() { playback_status.unsubscribe(hook_func, this); });
 }
 
 QModelIndex DeviceTreeModel::index(int row, int column, const QModelIndex& parent) const {
@@ -234,7 +238,8 @@ bool DeviceTreeModel::setData(const QModelIndex& index, const QVariant& value, i
   return true;
 }
 
-void DeviceTreeModel::data_changed_helper(const QModelIndex& p, const QVector<int>& roles) { // NOLINT: misc-no-recursion
+// NOLINTNEXTLINE: misc-no-recursion
+void DeviceTreeModel::data_changed_helper(const QModelIndex& p, const QVector<int>& roles) {
   const int row_count = rowCount(p);
   if (!row_count) return;
 
@@ -252,7 +257,8 @@ void DeviceTreeModel::data_changed_helper(const QModelIndex& p, const QVector<in
   }
 }
 
-static QString instance_row_display(const std::vector<PlayingDevice>& pd, const NodeLocator& node) { // NOLINT: misc-no-recursion
+// NOLINTNEXTLINE: misc-no-recursion
+static QString instance_row_display(const std::vector<PlayingDevice>& pd, const NodeLocator& node) {
   const auto end = pd.end();
   const PlayingDevice key{.dev_idx = node.dev_idx(), .instance = node.row()};
 

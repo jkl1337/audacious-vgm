@@ -88,7 +88,7 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
   layout->addWidget(tree_view, 0);
 
   tree_view->setItemDelegate(new DeviceListViewItemDelegate(tree_view));
-  auto *model = new vgmqt::DeviceTreeModel(settings_manager, playback_status, tree_view);
+  auto *model = new DeviceTreeModel(settings_manager, playback_status, tree_view);
 
   // auto *filter_model = new vgmqt::DeviceTreeFiltered(model);
   // filter_model->setSourceModel(model);
@@ -111,7 +111,8 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
   auto *chan_model = new ChannelTreeModel(settings_manager, &playback_status, chan_view);
   chan_view->setModel(chan_model);
 
-  QObject::connect(chan_model, &QAbstractItemModel::modelReset, chan_view,
+  // NOLINTNEXTLINE(*-unused-return-value)
+  connect(chan_model, &QAbstractItemModel::modelReset, chan_view,
                    [chan_model, chan_view]() {
                      int rc = chan_model->rowCount(QModelIndex());
 
