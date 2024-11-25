@@ -38,11 +38,11 @@ class SliderDelegate : public QStyledItemDelegate {
 
  public:
   explicit SliderDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {
-    std::unique_ptr<QSlider> slider(new QSlider(Qt::Horizontal));
-    slider->setRange(-256, 256);
-    slider->setTickInterval(64);
-    slider->setTickPosition(QSlider::TicksBelow);
-    sizeHint_ = slider->sizeHint();
+    QSlider slider(Qt::Horizontal);
+    slider.setRange(-256, 256);
+    slider.setTickInterval(64);
+    slider.setTickPosition(QSlider::TicksBelow);
+    sizeHint_ = slider.sizeHint();
   }
 
   bool eventFilter(QObject *object, QEvent *event) override {
@@ -87,6 +87,10 @@ class DeviceControlPanelPrivate {
 
   QHBoxLayout layout;
   QTreeView device_tree;
+  DeviceTreeModel device_tree_model;
+  QTreeView channel_tree;
+  ChannelTreeModel channel_tree_model;
+  CoresWidget cores_widget;
 
  public:
   DeviceControlPanelPrivate(DeviceControlPanel *q, vgmtk::PlaybackStatus &playback_status,
@@ -96,60 +100,54 @@ class DeviceControlPanelPrivate {
 DeviceControlPanelPrivate::DeviceControlPanelPrivate(DeviceControlPanel *q,
                                                      vgmtk::PlaybackStatus &playback_status,
                                                      vgmtk::SettingsManager &settings_manager)
-    : q_ptr(q), layout(q) {
-
-  auto *tree_view = new QTreeView();
-  layout.addWidget(tree_view, 0);
-
-  tree_view->setItemDelegate(new DeviceListViewItemDelegate(tree_view));
-  auto *model = new DeviceTreeModel(settings_manager, playback_status, tree_view);
+    : q_ptr(q),
+      layout(q),
+      device_tree_model(settings_manager, playback_status, &device_tree),
+      channel_tree_model(settings_manager, &playback_status, &channel_tree) {
+  layout.addWidget(&device_tree, 0);
+  device_tree.setItemDelegate(new DeviceListViewItemDelegate(&device_tree));
 
   // auto *filter_model = new vgmqt::DeviceTreeFiltered(model);
   // filter_model->setSourceModel(model);
 
-  tree_view->setSortingEnabled(false);
-  tree_view->setMinimumHeight(600);
-  tree_view->setModel(model);
-  // tree_view->expandRecursively(QModelIndex(), 1);
-  tree_view->setUniformRowHeights(true);
-  tree_view->setTextElideMode(Qt::ElideNone);
-  tree_view->header()->setStretchLastSection(false);
-  tree_view->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-  tree_view->resizeColumnToContents(0);
+  device_tree.setSortingEnabled(false);
+  device_tree.setMinimumHeight(600);
+  device_tree.setModel(&device_tree_model);
+  // device_tree.expandRecursively(QModelIndex(), 1);
+  device_tree.setUniformRowHeights(true);
+  device_tree.setTextElideMode(Qt::ElideNone);
+  device_tree.header()->setStretchLastSection(false);
+  device_tree.header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+  device_tree.resizeColumnToContents(0);
 
-  auto *chan_view = new QTreeView();
-  chan_view->setItemDelegateForColumn(3, new SliderDelegate(chan_view));
+  channel_tree.setItemDelegateForColumn(3, new SliderDelegate(&channel_tree));
 
-  layout.addWidget(chan_view, 1);
-  chan_view->setMinimumWidth(300);
-
-  auto *chan_model = new ChannelTreeModel(settings_manager, &playback_status, chan_view);
-  chan_view->setModel(chan_model);
+  layout.addWidget(&channel_tree, 1);
+  channel_tree.setMinimumWidth(300);
+  channel_tree.setModel(&channel_tree_model);
 
   // NOLINTNEXTLINE(*-unused-return-value)
-  QObject::connect(chan_model, &QAbstractItemModel::modelReset, chan_view,
-                   [chan_model, chan_view]() {
-                     int rc = chan_model->rowCount(QModelIndex());
+  QObject::connect(&channel_tree_model, &QAbstractItemModel::modelReset, &channel_tree, [this]() {
+    int rc = channel_tree_model.rowCount(QModelIndex());
 
-                     for (int r = 0; r < rc; ++r) {
-                       auto p = chan_model->index(r, 0, QModelIndex());
-                       auto c = chan_model->index(0, 3, p);
+    for (int r = 0; r < rc; ++r) {
+      auto p = channel_tree_model.index(r, 0, QModelIndex());
+      auto c = channel_tree_model.index(0, 3, p);
 
-                       if (!(chan_model->flags(c) & Qt::ItemIsEditable)) continue;
+      if (!(channel_tree_model.flags(c) & Qt::ItemIsEditable)) continue;
 
-                       for (int i = 0; c.isValid(); c = chan_model->index(++i, 3, p)) {
-                         chan_view->openPersistentEditor(c);
-                       }
-                     }
-                   });
-  chan_view->header()->setStretchLastSection(false);
-  chan_view->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-  chan_view->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-  chan_view->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+      for (int i = 0; c.isValid(); c = channel_tree_model.index(++i, 3, p)) {
+        channel_tree.openPersistentEditor(c);
+      }
+    }
+  });
+  channel_tree.header()->setStretchLastSection(false);
+  channel_tree.header()->setSectionResizeMode(0, QHeaderView::Stretch);
+  channel_tree.header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+  channel_tree.header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
 
-  auto *cores = new CoresWidget();
-  cores->setDevice(lib_devices[35], 1);
-  layout.addWidget(cores);
+  cores_widget.setDevice(lib_devices[35], 1);
+  layout.addWidget(&cores_widget);
 
   // auto *shortcut = new QShortcut(QKeySequence("Alt+1"), this);
 }
@@ -161,8 +159,7 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
 
 DeviceControlPanel::~DeviceControlPanel() = default;
 
-QWidget *create_qvgm_control_panel(PlaybackStatus &ps, SettingsManager &sm,
-                                   QWidget *parent) {
+QWidget *create_qvgm_control_panel(PlaybackStatus &ps, SettingsManager &sm, QWidget *parent) {
   return new DeviceControlPanel(ps, sm, parent);
 }
 

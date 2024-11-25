@@ -18,11 +18,10 @@ class DeviceControlPanel : public QWidget {
 
   Q_DECLARE_PRIVATE(DeviceControlPanel);
 
-public:
+ public:
   DeviceControlPanel(vgmtk::PlaybackStatus &playback_status,
                      vgmtk::SettingsManager &settings_manager, QWidget *parent = nullptr);
   ~DeviceControlPanel() override;
-
 };
 
 }  // namespace vgmqt

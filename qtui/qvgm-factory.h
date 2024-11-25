@@ -6,7 +6,7 @@ class QWidget;
 namespace vgmtk {
 class PlaybackStatus;
 class SettingsManager;
-}
+}  // namespace vgmtk
 
 namespace vgmqt {
 QWidget *create_qvgm_control_panel(vgmtk::PlaybackStatus &, vgmtk::SettingsManager &,
