@@ -13,7 +13,7 @@ using namespace vgmtk;
 
 PlayerSettings PlayerSettings::init_lib_defaults() {
   PlayerSettings settings;
-  VGMPlayer player;
+  const VGMPlayer player;
 
   settings.devices.resize(vgmtk::lib_devices.len);
 

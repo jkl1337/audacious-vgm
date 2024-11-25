@@ -1,4 +1,3 @@
-
 #include "libvgm-dev-meta.h"
 
 #include <libvgm/emu/EmuCores.h>
@@ -17,23 +16,32 @@ using namespace vgmtk;
 
 namespace {
 
-const char* sn76489_cname[]{"Noise"};
-const char* ym2413_cname[]{"Bass Drum", "Snare Drum", "Tom Tom", "Cymbal", "Hi-Hat"};
-const char* ym2612_cname[]{"DAC"};
-const char* delta_t_cname[]{"Delta-T"};
-const char* gb_cname[]{"Square 1", "Square 2", "Prog. Wave", "Noise"};
-const char* nes_cname[]{"Square 1", "Square 2", "Triangle", "Noise", "DPCM", "FDS"};
+constexpr std::array sn76489_cname{"Noise"};
+constexpr std::array ym2413_cname{"Bass Drum", "Snare Drum", "Tom Tom", "Cymbal", "Hi-Hat"};
+constexpr std::array ym2612_cname{"DAC"};
+constexpr std::array delta_t_cname{"Delta-T"};
+constexpr std::array gb_cname{"Square 1", "Square 2", "Prog. Wave", "Noise"};
+constexpr std::array nes_cname{"Square 1", "Square 2", "Triangle", "Noise", "DPCM", "FDS"};
 
-using ChG = vgmtk::ChannelGroup;
-using Cr = vgmtk::CoreSpec;
+using ChG = ChannelGroup;
+using Cr = CoreSpec;
 
-const ChG sn76489_cg[]{{3, sn76489_cname}};
-const ChG ym2413_cg[]{{9, ym2413_cname}};
-const ChG ym2612_cg[]{{6, ym2612_cname}};
-const ChG s1ch_cg[]{{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}}, s6ch_cg[]{{5}},
+constexpr std::size_t dynamic_extent = static_cast<std::size_t>(-1);
+template<typename CharT, std::size_t Extent = dynamic_extent>
+using basic_zstring = CharT*;
+
+using czstring = basic_zstring<const char, dynamic_extent>;
+
+template<std::size_t N>
+using ChGs = std::array<ChannelGroup, N>;
+
+constexpr ChG sn76489_cg[]{{3, sn76489_cname}};
+constexpr ChG ym2413_cg[]{{9, ym2413_cname}};
+constexpr ChG ym2612_cg[]{{6, ym2612_cname}};
+constexpr  ChG s1ch_cg[]{{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}}, s6ch_cg[]{{5}},
     s8ch_cg[]{{8}}, s12ch_cg[]{{12}}, s16ch_cg[]{{16}}, s24ch_cg[]{{24}}, s28ch_cg[]{{28}},
     s32ch_cg[]{{32}};
-const ChG ym22_cg[]{{3, nullptr, "FM"}};
+constexpr ChG ym22_cg[]{{3, nullptr, "FM"}};
 const ChG ym26_cg[]{{6, nullptr, "FM"}, {6, nullptr, "PCM"}, {0, delta_t_cname}};
 const ChG y8950_cg[]{{9, ym2413_cname}, {0, delta_t_cname}};
 const ChG ymf262_cg[]{{18, ym2413_cname}};
@@ -58,25 +66,25 @@ const Cr saa_cs[]{{FCC_MAME}, {FCC_VBEL, "Valley Bell"}};
 const Cr mikey_cs[]{{FCC_LAOO}};
 const Cr ym2151_cs[]{{FCC_MAME}, {FCC_NUKE, "Nuked OPM"}};
 
-const SwitchOption ym2612_chip_type_opts[]{
-    {"YM2612", "Emulate original YM2612", OPT_YM2612_TYPE_OPN2},
-    {"YM3438 ASIC", "Emulate ASIC YM3438.", OPT_YM2612_TYPE_OPN2C_ASIC},
-    {"YM3438 Discrete", "Emulate Discrete YM3438.", OPT_YM2612_TYPE_OPN2C_DISC}};
+constexpr std::array<OnOffOption,3> ym2612_chip_type_opts{{
+    {.label="YM2612", .doc="Emulate original YM2612", .value=OPT_YM2612_TYPE_OPN2},
+    {.label="YM3438 ASIC", .doc="Emulate ASIC YM3438.", .value=OPT_YM2612_TYPE_OPN2C_ASIC},
+    {.label="YM3438 Discrete", .doc="Emulate Discrete YM3438.", .value=OPT_YM2612_TYPE_OPN2C_DISC}}};
 
-const OptionSpec ym2612_opts[]{
-    {"Pseudo Stereo",
-     "Pseudo Stereo mode. Alternate between updating left and right "
-     "speaker, adds some stereo effect to sharp and noisy sounds.",
-     OPT_YM2612_PSEUDO_STEREO, FCC_GPGX},
-    {"Legacy Mode",
-     "Simulate behavior of older emulation core. Not recommended, but "
-     "required for playing GYM files.",
-     OPT_YM2612_LEGACY_MODE, FCC_GPGX},
-    {"Chip Type", nullptr, ym2612_chip_type_opts, FCC_NUKE},
-    {"DAC highpass", "Enable DAC highpass filter.", OPT_YM2612_DAC_HIGHPASS, FCC_GENS},
-    {"SSG-EG", "Enable (broken) SSG-EG emulation.", OPT_YM2612_SSGEG, FCC_GENS}};
+constexpr OptionSpec ym2612_opts[]{
+{"Pseudo Stereo",
+ "Pseudo Stereo mode. Alternate between updating left and right "
+ "speaker, adds some stereo effect to sharp and noisy sounds.",
+ OPT_YM2612_PSEUDO_STEREO, FCC_GPGX},
+{"Legacy Mode",
+ "Simulate behavior of older emulation core. Not recommended, but "
+ "required for playing GYM files.",
+ OPT_YM2612_LEGACY_MODE, FCC_GPGX},
+{"Chip Type", nullptr, ym2612_chip_type_opts, FCC_NUKE},
+{"DAC highpass", "Enable DAC highpass filter.", OPT_YM2612_DAC_HIGHPASS, FCC_GENS},
+{"SSG-EG", "Enable (broken) SSG-EG emulation.", OPT_YM2612_SSGEG, FCC_GENS}};
 
-const OptionSpec gb_opts[]{
+constexpr OptionSpec gb_opts[]{
     {"Boost Wave Channel", "Boost volume of wave channel by 6dB.", OPT_GB_DMG_BOOST_WAVECH},
     {"Disable WaveRAM corruption",
      "Non-GBC models overwrite parts of the WaveRAM when triggered while "
@@ -87,7 +95,7 @@ const OptionSpec gb_opts[]{
      "files optimized with vgm_cmp.",
      OPT_GB_DMG_LEGACY_MODE}};
 
-const OptionSpec nes_opts[]{
+constexpr OptionSpec nes_opts[]{
     {"Unmute on reset", "Enable all channels by default after reset.", OPT_NES_UNMUTE_ON_RESET,
      FCC_NSFP},
     {"Non-linear Mixer", nullptr, OPT_NES_NONLINEAR_MIXER, FCC_NSFP},
@@ -113,68 +121,68 @@ const OptionSpec nes_opts[]{
     {"4085 Reset", "Reset modulation phase on 4085 writes.", OPT_NES_4085_RESET},
     {"FDS Disable", "Disable FDS", OPT_NES_FDS_DISABLE}};
 
-const OptionSpec m6258_opts[]{
+constexpr OptionSpec m6258_opts[]{
     {"Force 12-bit", "Enforce 12-bit output precision", OPT_OKIM6258_FORCE_12BIT}};
 
-const OptionSpec scsp_opts[]{{"Bypass DSP",
+constexpr OptionSpec scsp_opts[]{{"Bypass DSP",
                               "skip all DSP calculations (huge speedup, DSP is broken anyway)",
                               OPT_SCSP_BYPASS_DSP}};
-const OptionSpec c352_opts[]{
+constexpr OptionSpec c352_opts[]{
     {"Disable Rear", "Mute rear speakers regardless of configuration", OPT_C352_MUTE_REAR}};
-const OptionSpec ga20_opts[]{
+constexpr OptionSpec ga20_opts[]{
     {"Linear interpolation", "Enable linear interpolation for samples.", OPT_GA20_INTERPOLATE}};
 
-const int kIdxAY8910 = 17;
-const int kIdxYMF262 = 12;
+constexpr int kIdxAY8910 = 17;
+constexpr int kIdxYMF262 = 12;
 
-constexpr const DeviceConfig lib_devices_p[kNumDevices]{
-    {DEVID_SN76496, "SN76496", sn76489_cg, sn76489_cs},
-    {DEVID_YM2413, "YM2413", ym2413_cg, ym2413_cs},
-    {DEVID_YM2612, "YM2612", ym2612_cg, ym2612_cs, ym2612_opts},
-    {DEVID_YM2151, "YM2151", s8ch_cg, ym2151_cs},
-    {DEVID_SEGAPCM, "Sega PCM", s16ch_cg, mame_cs},
-    {DEVID_RF5C68, "RF5C68", s8ch_cg, rf5c68_cs},
-    {DEVID_YM2203, "YM2203", ym22_cg, mame_cs, {}, LinkSpec{lib_devices_p + kIdxAY8910, "PSG"}},
-    {DEVID_YM2608, "YM2608", ym26_cg, mame_cs, {}, LinkSpec{lib_devices_p + kIdxAY8910, "PSG"}},
-    {DEVID_YM2610, "YM2610", ym26_cg, mame_cs, {}, LinkSpec{lib_devices_p + kIdxAY8910, "PSG"}},
-    {DEVID_YM3812, "YM3812", ym2413_cg, ym3812_cs},
-    {DEVID_YM3526, "YM3526", ym2413_cg, mame_cs},
-    {DEVID_Y8950, "Y8950", y8950_cg, mame_cs},
-    {DEVID_YMF262, "YMF262", ymf262_cg, ym3812_cs},
-    {DEVID_YMF278B,
-     "YMF278B",
-     s24ch_cg,
-     ymf278b_cs,
-     {},
-     LinkSpec{lib_devices_p + kIdxYMF262, "FM"}},
-    {DEVID_YMF271, "YMF271", s12ch_cg, mame_cs},
-    {DEVID_YMZ280B, "YMZ280B", s8ch_cg, mame_cs},
-    {DEVID_32X_PWM, "PWM", s1ch_cg, gens_cs},
-    {DEVID_AY8910, "AY8910", s3ch_cg, ay8910_cs},
-    {DEVID_GB_DMG, "GameBoy DMG", gb_cg, mame_cs, gb_opts},
-    {DEVID_NES_APU, "NES APU", nes_cg, nes_cs, nes_opts},
-    {DEVID_YMW258, "YMW258", s28ch_cg, mame_cs},
-    {DEVID_uPD7759, "uPD7759", s1ch_cg, mame_cs},
-    {DEVID_OKIM6258, "MSM6258", s1ch_cg, mame_cs, m6258_opts},
-    {DEVID_OKIM6295, "MSM6295", s4ch_cg, mame_cs},
-    {DEVID_K051649, "K051649", s5ch_cg, mame_cs},
-    {DEVID_K054539, "K054539", s8ch_cg, mame_cs},
-    {DEVID_C6280, "HuC6280", s6ch_cg, c6280_cs},
-    {DEVID_C140, "C140", s24ch_cg, mame_cs},
-    {DEVID_C219, "C219", s16ch_cg, mame_cs},
-    {DEVID_K053260, "K053260", s4ch_cg, mame_cs},
-    {DEVID_POKEY, "POKEY", s4ch_cg, mame_cs},
-    {DEVID_QSOUND, "QSound", s16ch_cg, qsound_cs},
-    {DEVID_SCSP, "SCSP", s32ch_cg, mame_cs, scsp_opts},
-    {DEVID_WSWAN, "WonderSwan", s4ch_cg, wswan_cs},
-    {DEVID_VBOY_VSU, "VSU-VUE", s6ch_cg, vboy_cs},
-    {DEVID_SAA1099, "SAA1099", s6ch_cg, saa_cs},
-    {DEVID_ES5503, "ES5503", s32ch_cg, mame_cs},
-    {DEVID_ES5506, "ES5506", s32ch_cg, mame_cs},
-    {DEVID_X1_010, "X1-010", s16ch_cg, mame_cs},
-    {DEVID_C352, "C352", s32ch_cg, mame_cs, c352_opts},
-    {DEVID_GA20, "Irem GA20", s4ch_cg, mame_cs, ga20_opts},
-    {DEVID_MIKEY, "MIKEY", s4ch_cg, mikey_cs}};
+constexpr DeviceConfig lib_devices_p[kNumDevices]{
+    {.devid=DEVID_SN76496, .label="SN76496", .channels=sn76489_cg, .cores=sn76489_cs},
+    {.devid=DEVID_YM2413, .label="YM2413", .channels=ym2413_cg, .cores=ym2413_cs},
+    {.devid=DEVID_YM2612, .label="YM2612", .channels=ym2612_cg, .cores=ym2612_cs, .options=ym2612_opts},
+    {.devid=DEVID_YM2151, .label="YM2151", .channels=s8ch_cg, .cores=ym2151_cs},
+    {.devid=DEVID_SEGAPCM, .label="Sega PCM", .channels=s16ch_cg, .cores=mame_cs},
+    {.devid=DEVID_RF5C68, .label="RF5C68", .channels=s8ch_cg, .cores=rf5c68_cs},
+    {.devid=DEVID_YM2203, .label="YM2203", .channels=ym22_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + kIdxAY8910, .prefix="PSG"}},
+    {.devid=DEVID_YM2608, .label="YM2608", .channels=ym26_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + kIdxAY8910, .prefix="PSG"}},
+    {.devid=DEVID_YM2610, .label="YM2610", .channels=ym26_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + kIdxAY8910, .prefix="PSG"}},
+    {.devid=DEVID_YM3812, .label="YM3812", .channels=ym2413_cg, .cores=ym3812_cs},
+    {.devid=DEVID_YM3526, .label="YM3526", .channels=ym2413_cg, .cores=mame_cs},
+    {.devid=DEVID_Y8950, .label="Y8950", .channels=y8950_cg, .cores=mame_cs},
+    {.devid=DEVID_YMF262, .label="YMF262", .channels=ymf262_cg, .cores=ym3812_cs},
+    {.devid=DEVID_YMF278B,
+     .label="YMF278B",
+     .channels=s24ch_cg,
+     .cores=ymf278b_cs,
+     .options={},
+     .linked=LinkSpec{lib_devices_p + kIdxYMF262, "FM"}},
+    {.devid=DEVID_YMF271, .label="YMF271", .channels=s12ch_cg, .cores=mame_cs},
+    {.devid=DEVID_YMZ280B, .label="YMZ280B", .channels=s8ch_cg, .cores=mame_cs},
+    {.devid=DEVID_32X_PWM, .label="PWM", .channels=s1ch_cg, .cores=gens_cs},
+    {.devid=DEVID_AY8910, .label="AY8910", .channels=s3ch_cg, .cores=ay8910_cs},
+    {.devid=DEVID_GB_DMG, .label="GameBoy DMG", .channels=gb_cg, .cores=mame_cs, .options=gb_opts},
+    {.devid=DEVID_NES_APU, .label="NES APU", .channels=nes_cg, .cores=nes_cs, .options=nes_opts},
+    {.devid=DEVID_YMW258, .label="YMW258", .channels=s28ch_cg, .cores=mame_cs},
+    {.devid=DEVID_uPD7759, .label="uPD7759", .channels=s1ch_cg, .cores=mame_cs},
+    {.devid=DEVID_OKIM6258, .label="MSM6258", .channels=s1ch_cg, .cores=mame_cs, .options=m6258_opts},
+    {.devid=DEVID_OKIM6295, .label="MSM6295", .channels=s4ch_cg, .cores=mame_cs},
+    {.devid=DEVID_K051649, .label="K051649", .channels=s5ch_cg, .cores=mame_cs},
+    {.devid=DEVID_K054539, .label="K054539", .channels=s8ch_cg, .cores=mame_cs},
+    {.devid=DEVID_C6280, .label="HuC6280", .channels=s6ch_cg, .cores=c6280_cs},
+    {.devid=DEVID_C140, .label="C140", .channels=s24ch_cg, .cores=mame_cs},
+    {.devid=DEVID_C219, .label="C219", .channels=s16ch_cg, .cores=mame_cs},
+    {.devid=DEVID_K053260, .label="K053260", .channels=s4ch_cg, .cores=mame_cs},
+    {.devid=DEVID_POKEY, .label="POKEY", .channels=s4ch_cg, .cores=mame_cs},
+    {.devid=DEVID_QSOUND, .label="QSound", .channels=s16ch_cg, .cores=qsound_cs},
+    {.devid=DEVID_SCSP, .label="SCSP", .channels=s32ch_cg, .cores=mame_cs, .options=scsp_opts},
+    {.devid=DEVID_WSWAN, .label="WonderSwan", .channels=s4ch_cg, .cores=wswan_cs},
+    {.devid=DEVID_VBOY_VSU, .label="VSU-VUE", .channels=s6ch_cg, .cores=vboy_cs},
+    {.devid=DEVID_SAA1099, .label="SAA1099", .channels=s6ch_cg, .cores=saa_cs},
+    {.devid=DEVID_ES5503, .label="ES5503", .channels=s32ch_cg, .cores=mame_cs},
+    {.devid=DEVID_ES5506, .label="ES5506", .channels=s32ch_cg, .cores=mame_cs},
+    {.devid=DEVID_X1_010, .label="X1-010", .channels=s16ch_cg, .cores=mame_cs},
+    {.devid=DEVID_C352, .label="C352", .channels=s32ch_cg, .cores=mame_cs, .options=c352_opts},
+    {.devid=DEVID_GA20, .label="Irem GA20", .channels=s4ch_cg, .cores=mame_cs, .options=ga20_opts},
+    {.devid=DEVID_MIKEY, .label="MIKEY", .channels=s4ch_cg, .cores=mikey_cs}};
 
 static_assert(lib_devices_p[kIdxYMF262].devid == DEVID_YMF262, "kIdxYMF262 is incorrect.");
 static_assert(lib_devices_p[kIdxAY8910].devid == DEVID_AY8910, "kIdxAY8910 is incorrect.");

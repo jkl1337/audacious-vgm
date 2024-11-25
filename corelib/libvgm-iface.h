@@ -1,7 +1,3 @@
-//
-// Created by luebsj on 4/11/20.
-//
-
 #ifndef AUDACIOUS_VGM_LIBVGM_INT_H
 #define AUDACIOUS_VGM_LIBVGM_INT_H
 
@@ -17,9 +13,8 @@
 namespace vgmtk {
 
 struct PlayerSettings {
- public:
-  typedef std::bitset<vgmtk::kMaxLinked> DisableMask;
-  typedef std::bitset<vgmtk::kMaxAllChannels> ChannelMask;
+  typedef std::bitset<kMaxLinked> DisableMask;
+  typedef std::bitset<kMaxAllChannels> ChannelMask;
 
   struct Chip {
     DisableMask disable = 0;
@@ -31,7 +26,7 @@ struct PlayerSettings {
   struct Device {
     uint32_t core = 0;
     uint32_t core_opts = 0;
-    std::array<Chip, vgmtk::kNumInstances> chips;
+    std::array<Chip, kNumInstances> chips;
   };
 
   std::vector<Device> devices;
@@ -65,7 +60,7 @@ class PlaybackStatus {
   static void hook_cb(void *, void *);
   void call_hooks();
   struct HookInfo {
-    PlaybackStatus::NotifyFunc func;
+    NotifyFunc func;
     void *ctx;
   };
   std::mutex hook_lock_;

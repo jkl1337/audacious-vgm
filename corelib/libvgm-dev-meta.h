@@ -4,7 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <span>
 
 #pragma clang diagnostic push
 
@@ -12,13 +12,13 @@ struct PLR_DEV_INFO;
 
 namespace vgmtk {
 
-constexpr const int kNumDevices = 42;
-constexpr const int kNumInstances = 2;
-constexpr const int kMaxLinked = 2;
-constexpr const int kMaxChannels = 32;
-constexpr const int kMaxAllChannels = 64;
+constexpr int kNumDevices = 42;
+constexpr int kNumInstances = 2;
+constexpr int kMaxLinked = 2;
+constexpr int kMaxChannels = 32;
+constexpr int kMaxAllChannels = 64;
 
-constexpr const uint_least32_t kCoreInvalid = UINT32_MAX;
+constexpr uint_least32_t core_invalid = std::numeric_limits<uint_least32_t>::max();
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "google-explicit-constructor"
@@ -48,14 +48,14 @@ struct ArrayRef {
 
 struct ChannelGroup {
   int serial = 0;
-  const ArrayRef<const char *> named;
-  const char group[8] = {};
+  ArrayRef<const char *> named;
+  char group[8] = {};
 
   constexpr bool valid() const { return serial || named.len; }
   constexpr const char *name() const { return group[0] ? group : nullptr; }
 };
 
-struct SwitchOption {
+struct OnOffOption {
   const char *label = nullptr;
   const char *doc = nullptr;
   uint_least32_t value = 0;
@@ -67,42 +67,42 @@ struct ChoiceOption {
   const char *label = nullptr;
   const char *doc = nullptr;
 
-  ArrayRef<SwitchOption> choices;
+  const ArrayRef<OnOffOption> choices;
 };
 
 struct OptionSpec {
-  enum Type { None, Switch, Choice };
+  enum class Type : uint8_t { none, onoff, choice };
   Type type;
   union {
-    SwitchOption sw;
+    OnOffOption sw;
     ChoiceOption choice;
   };
-  uint_least32_t core = kCoreInvalid;
+  uint_least32_t core = core_invalid;
 
   constexpr OptionSpec(const char *label, const char *doc, uint_least32_t value,
-                       uint_least32_t core = kCoreInvalid)
-      : type(Switch), sw{label, doc, value}, core(core) {}
+                       uint_least32_t core = core_invalid)
+      : type(Type::onoff), sw{label, doc, value}, core(core) {}
 
-  constexpr OptionSpec(const char *label, const char *doc, const ArrayRef<SwitchOption> choices,
-                       uint_least32_t core = kCoreInvalid)
-      : type(Choice), choice{label, doc, choices}, core(core) {}
+  constexpr OptionSpec(const char *label, const char *doc, ArrayRef<OnOffOption> choices,
+                       uint_least32_t core = core_invalid)
+      : type(Type::choice), choice{label, doc, choices}, core(core) {}
 
-  constexpr OptionSpec() : type(None), sw() {}
+  constexpr OptionSpec() : type(Type::none), sw() {}
 };
 
 struct CoreSpec {
-  uint_least32_t core = kCoreInvalid;
-  const char label[12] = {};
+  uint_least32_t core = core_invalid;
+  char label[12]{};
   bool panning = false;
 
-  constexpr bool valid() const { return core != kCoreInvalid; }
+  constexpr bool valid() const { return core != core_invalid; }
 };
 
 class DeviceConfig;
 
 struct LinkSpec {
   const DeviceConfig *dev = nullptr;
-  const char prefix[4] = {};
+  char prefix[4]{};
 
   constexpr bool valid() const { return dev != nullptr; }
 };
@@ -116,8 +116,8 @@ extern const DeviceConfigList lib_devices;
 
 class DeviceConfig {
  public:
-  uint_least32_t devid = kCoreInvalid;
-  const char label[12] = {};
+  uint_least32_t devid{core_invalid};
+  char label[12]{};
 
   ArrayRef<ChannelGroup> channels;
   ArrayRef<CoreSpec> cores;
@@ -129,22 +129,20 @@ class DeviceConfig {
   constexpr int num_cores() const { return cores.len; }
   constexpr bool has_options() const { return options.len; }
   constexpr bool has_linked() const { return linked.valid(); }
-  constexpr bool valid() const { return devid != kCoreInvalid; }
+  constexpr bool valid() const { return devid != core_invalid; }
 
   const DeviceConfig *linked_config() const { return linked.dev; }
 
   bool has_panning(uint32_t core = 0) const {
-    for (const auto &c : cores) {
-      if (c.panning && (!core || c.core == core)) return true;
-    }
-    return false;
+    return std::any_of(cores.begin(), cores.end(),
+                       [core](const auto &c) { return c.panning && (!core || c.core == core); });
   }
 
   int num_channels() const {
     int count = 0;
-    for (const auto &c : channels) {
-      count += c.serial;
-      count += c.named.len;
+    for (const auto &[serial, named, group] : channels) {
+      count += serial;
+      count += named.len;
     }
     return count;
   }
@@ -155,9 +153,9 @@ class DeviceConfig {
 
   const char *core_name(uint32_t core_id = 0) const {
     if (!core_id) core_id = cores[0].core;
-    for (const auto &c : cores) {
-      if (c.core == core_id) {
-        if (c.label[0]) return c.label;
+    for (const auto &[core, label, panning] : cores) {
+      if (core == core_id) {
+        if (label[0]) return label;
         break;
       }
     }
@@ -188,11 +186,10 @@ template <class Container, class Element = typename Container::value_type>
 struct DevInfoRange {
   Container &v;
 
- public:
   template <class TElem>
   struct Tuple {
     TElem &dev;
-    const vgmtk::DeviceConfig &dev_info;
+    const DeviceConfig &dev_info;
   };
 
   template <class BaseIterator, class ValueType>
@@ -209,11 +206,11 @@ struct DevInfoRange {
 
     explicit constexpr IterT(BaseIterator it, typename Container::difference_type idx = 0)
         : it(it), idx(idx) {}
-    constexpr value_type operator*() const { return value_type{*it, vgmtk::lib_devices[idx]}; }
+    constexpr value_type operator*() const { return value_type{*it, lib_devices[idx]}; }
     bool operator!=(const IterT &other) const { return it != other.it; }
     void operator++() {
-      it++;
-      idx++;
+      ++it;
+      ++idx;
     }
   };
   using iterator = IterT<typename Container::iterator, Tuple<Element>>;
@@ -221,6 +218,7 @@ struct DevInfoRange {
   using const_reference = Tuple<Element>;
 
   explicit DevInfoRange(Container &v) : v(v) {}
+  DevInfoRange(const DevInfoRange &) = delete;
 
   constexpr iterator begin() { return iterator{v.begin()}; }
   constexpr iterator end() { return iterator{v.end(), std::distance(v.begin(), v.end())}; }
