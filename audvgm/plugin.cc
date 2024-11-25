@@ -3,6 +3,7 @@
 
 #include <libaudcore/hook.h>
 #include <libaudcore/i18n.h>
+#include <libaudcore/interface.h>
 #include <libaudcore/preferences.h>
 #include <libaudcore/runtime.h>
 #include <qtui/qvgm-factory.h>
@@ -28,12 +29,12 @@ bool Plugin::init() {
   settings_container_ = new SettingsManager(ps);
   global_settings = settings_container_;
 
-  // hook_associate(
-  //     "audvgm init",
-  //     [](void *, void *) { audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance)); },
-  //     nullptr);
-  //event_queue("audvgm init", nullptr);
-  // aud_plugin_menu_add(AudMenuID::Main, vgmtk::vgm_configure, _("VGM Configure..."), nullptr);
+   hook_associate(
+       "audvgm init",
+       [](void *, void *) { audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance)); },
+       nullptr);
+  event_queue("audvgm init", nullptr);
+   // aud_plugin_menu_add(AudMenuID::Main, vgmtk::vgm_configure, _("VGM Configure..."), nullptr);
 
   return true;
 }

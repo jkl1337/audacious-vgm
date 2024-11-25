@@ -160,8 +160,8 @@ class DeviceInfoZipIterator {
 
  public:
   struct Value {
-    std::iter_value_t<ForwardIterator> &dev; // NOLINT
-    const DeviceConfig &meta; // NOLINT
+    std::iter_value_t<ForwardIterator> &dev;  // NOLINT
+    const DeviceConfig &meta;                 // NOLINT
   };
 
   using iterator_category = std::forward_iterator_tag;

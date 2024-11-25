@@ -22,15 +22,15 @@ endif ()
 
 add_library(
         qtui STATIC
-        qvgm-player.cc
-        qvgm-player.h
         channel-select.cc
         channel-select.h
         device-select.cc
         device-select.h
         qvgm-factory.h
         core-selector.cc
-        core-selector.h)
+        core-selector.h
+        device-control-panel.h
+        device-control-panel.cc)
 target_sources(qtui PRIVATE i18n.h)
 set_property(TARGET qtui PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_compile_options(qtui PRIVATE -Wall -Wextra -Wno-unknown-pragmas)

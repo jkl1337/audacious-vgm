@@ -1,6 +1,4 @@
-#include "qvgm-player.h"
-
-#include <corelib/settings-manager.h>
+#include "device-control-panel.h"
 
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -11,6 +9,7 @@
 
 #include "channel-select.h"
 #include "core-selector.h"
+#include "corelib/settings-manager.h"
 #include "device-select.h"
 #include "qvgm-factory.h"
 
@@ -79,13 +78,28 @@ class SliderDelegate : public QStyledItemDelegate {
 
 }  // namespace
 
-DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
-                                       SettingsManager &settings_manager, QWidget *parent)
-    : QWidget(parent) {
-  auto *layout = new QHBoxLayout(this);
+namespace vgmqt {
+
+class DeviceControlPanelPrivate {
+  Q_DISABLE_COPY(DeviceControlPanelPrivate);
+  Q_DECLARE_PUBLIC(DeviceControlPanel);
+  DeviceControlPanel *const q_ptr;
+
+  QHBoxLayout layout;
+  QTreeView device_tree;
+
+ public:
+  DeviceControlPanelPrivate(DeviceControlPanel *q, vgmtk::PlaybackStatus &playback_status,
+                            vgmtk::SettingsManager &settings_manager);
+};
+
+DeviceControlPanelPrivate::DeviceControlPanelPrivate(DeviceControlPanel *q,
+                                                     vgmtk::PlaybackStatus &playback_status,
+                                                     vgmtk::SettingsManager &settings_manager)
+    : q_ptr(q), layout(q) {
 
   auto *tree_view = new QTreeView();
-  layout->addWidget(tree_view, 0);
+  layout.addWidget(tree_view, 0);
 
   tree_view->setItemDelegate(new DeviceListViewItemDelegate(tree_view));
   auto *model = new DeviceTreeModel(settings_manager, playback_status, tree_view);
@@ -106,27 +120,28 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
   auto *chan_view = new QTreeView();
   chan_view->setItemDelegateForColumn(3, new SliderDelegate(chan_view));
 
-  layout->addWidget(chan_view, 1);
+  layout.addWidget(chan_view, 1);
   chan_view->setMinimumWidth(300);
 
   auto *chan_model = new ChannelTreeModel(settings_manager, &playback_status, chan_view);
   chan_view->setModel(chan_model);
 
   // NOLINTNEXTLINE(*-unused-return-value)
-  connect(chan_model, &QAbstractItemModel::modelReset, chan_view, [chan_model, chan_view]() {
-    int rc = chan_model->rowCount(QModelIndex());
+  QObject::connect(chan_model, &QAbstractItemModel::modelReset, chan_view,
+                   [chan_model, chan_view]() {
+                     int rc = chan_model->rowCount(QModelIndex());
 
-    for (int r = 0; r < rc; ++r) {
-      auto p = chan_model->index(r, 0, QModelIndex());
-      auto c = chan_model->index(0, 3, p);
+                     for (int r = 0; r < rc; ++r) {
+                       auto p = chan_model->index(r, 0, QModelIndex());
+                       auto c = chan_model->index(0, 3, p);
 
-      if (!(chan_model->flags(c) & Qt::ItemIsEditable)) continue;
+                       if (!(chan_model->flags(c) & Qt::ItemIsEditable)) continue;
 
-      for (int i = 0; c.isValid(); c = chan_model->index(++i, 3, p)) {
-        chan_view->openPersistentEditor(c);
-      }
-    }
-  });
+                       for (int i = 0; c.isValid(); c = chan_model->index(++i, 3, p)) {
+                         chan_view->openPersistentEditor(c);
+                       }
+                     }
+                   });
   chan_view->header()->setStretchLastSection(false);
   chan_view->header()->setSectionResizeMode(0, QHeaderView::Stretch);
   chan_view->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
@@ -134,12 +149,23 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
 
   auto *cores = new CoresWidget();
   cores->setDevice(lib_devices[35], 1);
-  layout->addWidget(cores);
+  layout.addWidget(cores);
 
   // auto *shortcut = new QShortcut(QKeySequence("Alt+1"), this);
 }
 
-QWidget *vgmqt::create_qvgm_control_panel(PlaybackStatus &ps, SettingsManager &sm,
-                                          QWidget *parent) {
+DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
+                                       SettingsManager &settings_manager, QWidget *parent)
+    : QWidget(parent),
+      d_ptr(std::make_unique<DeviceControlPanelPrivate>(this, playback_status, settings_manager)) {}
+
+DeviceControlPanel::~DeviceControlPanel() = default;
+
+QWidget *create_qvgm_control_panel(PlaybackStatus &ps, SettingsManager &sm,
+                                   QWidget *parent) {
   return new DeviceControlPanel(ps, sm, parent);
 }
+
+}  // namespace vgmqt
+
+#include "moc_device-control-panel.cpp"

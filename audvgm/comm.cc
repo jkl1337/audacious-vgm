@@ -38,7 +38,7 @@ void PlaybackStatus::unsubscribe(PlaybackStatus::NotifyFunc func, void *ctx) {
   if (hooks_.empty()) hook_dissociate(kUpdateEvent, hook_cb, this);
 }
 
-void PlaybackStatus::hook_cb(void *data, void *ctx) {
+void PlaybackStatus::hook_cb(void *data, void *) {
   static_cast<PlaybackStatus *>(data)->call_hooks();
 }
 
