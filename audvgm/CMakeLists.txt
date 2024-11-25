@@ -17,9 +17,9 @@ add_library(vgm MODULE
         vfsloader.cc vfsloader.h)
 
 set_target_properties(vgm PROPERTIES PREFIX "")
-if(APPLE)
+if (APPLE)
     set_target_properties(vgm PROPERTIES SUFFIX ".dylib")
-endif()
+endif ()
 target_compile_options(vgm PRIVATE -Wall -Wextra)
 
 # add_executable(tester vgmtk/tester.cpp vgmtk/libvgm-dev-meta.cpp)

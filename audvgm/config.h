@@ -43,6 +43,6 @@ void load_player_settings(const PlayerSettings &settings);
 void save_player_settings(const PlayerSettings &settings);
 void save_player_settings_device(int dev_idx, const PlayerSettings::Device &dev_settings);
 
-}
+}  // namespace vgmtk
 
 #endif  // AUDACIOUS_VGM_CONFIG_H

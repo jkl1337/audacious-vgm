@@ -7,31 +7,31 @@ set(CMAKE_AUTOMOC ON)
 
 option(AUDVGM_USE_QT5 "Force using Qt5" OFF)
 
-if(NOT AUDVGM_USE_QT5)
-  find_package(Qt6 COMPONENTS Gui Widgets LinguistTools)
-endif()
+if (NOT AUDVGM_USE_QT5)
+    find_package(Qt6 COMPONENTS Gui Widgets LinguistTools)
+endif ()
 
-if(NOT Qt6_FOUND)
-  find_package(
-    Qt5 5.15
-    COMPONENTS Gui Widgets LinguistTools
-    REQUIRED)
-endif()
+if (NOT Qt6_FOUND)
+    find_package(
+            Qt5 5.15
+            COMPONENTS Gui Widgets LinguistTools
+            REQUIRED)
+endif ()
 
 # qt5_create_translation(QM_FILES src/device-panel.cc vgm_es.ts OPTIONS
 # -tr-function-alias QT_TR_NOOP+=N_)
 
 add_library(
-  qtui STATIC
-  qvgm-player.cc
-  qvgm-player.h
-  channel-select.cc
-  channel-select.h
-  device-select.cc
-  device-select.h
-  qvgm-factory.h
-  core-selector.cc
-  core-selector.h)
+        qtui STATIC
+        qvgm-player.cc
+        qvgm-player.h
+        channel-select.cc
+        channel-select.h
+        device-select.cc
+        device-select.h
+        qvgm-factory.h
+        core-selector.cc
+        core-selector.h)
 target_sources(qtui PRIVATE i18n.h)
 set_property(TARGET qtui PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_compile_options(qtui PRIVATE -Wall -Wextra -Wno-unknown-pragmas)

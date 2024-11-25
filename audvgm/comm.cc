@@ -1,6 +1,5 @@
-#include <libaudcore/hook.h>
-
 #include <corelib/libvgm-rt.h>
+#include <libaudcore/hook.h>
 
 using namespace vgmtk;
 
