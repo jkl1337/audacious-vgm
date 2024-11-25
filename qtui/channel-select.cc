@@ -75,7 +75,7 @@ ChannelTreeModel::ChannelTreeModel(vgmtk::SettingsManager &settings_manager,
     for (const auto &a : new_info) {
       int dev_idx = info_list.find_index(a.type);
       if (dev_idx < 0) continue;
-      now_active.push_back({dev_idx, a.instance});
+      now_active.push_back({dev_idx, a.instance, 0});
     }
     std::sort(now_active.begin(), now_active.end(), [](const auto &l, const auto &r) {
       return (l.dev_idx < r.dev_idx) || (l.dev_idx == r.dev_idx && l.instance < r.instance);
@@ -122,7 +122,7 @@ int ChannelTreeModel::rowCount(const QModelIndex &parent) const {
   }
 }
 
-int ChannelTreeModel::columnCount(const QModelIndex &parent) const { return 4; }
+int ChannelTreeModel::columnCount(const QModelIndex &) const { return 4; }
 
 bool ChannelTreeModel::setData(const QModelIndex &index, const QVariant &value, int role) {
   const int column = index.column();
@@ -141,9 +141,8 @@ bool ChannelTreeModel::setData(const QModelIndex &index, const QVariant &value, 
     return true;
   } else if ((column == 1 || column == 2) && role == Qt::CheckStateRole) {
     bool changed = false;
-    bool state = value.value<Qt::CheckState>() == Qt::Checked;
+    const bool state = value.value<Qt::CheckState>() == Qt::Checked;
     const auto &active = active_devices_[node.top_idx()];
-    const vgmtk::DeviceConfig &dev_info = info_list_[active_devices_[node.top_idx()].dev_idx];
 
     auto writer = settings_manager_.writer();
     vgmtk::PlayerSettings::ChannelMask mask;
@@ -297,7 +296,7 @@ QVariant ChannelTreeModel::headerData(int section, Qt::Orientation orientation, 
   static const std::array<const QString, 4> labels = {tr("Channel"), tr("M"), tr("S"),
                                                       tr("Panning")};
   if (orientation == Qt::Horizontal && role == Qt::DisplayRole && section >= 0 &&
-      section < labels.size())
+      static_cast<size_t>(section) < labels.size())
     return labels[section];
 
   return {};
