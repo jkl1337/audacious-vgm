@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <ranges>
 #include <span>
 #include <string_view>
 
@@ -152,52 +153,64 @@ class DeviceConfigList : public std::span<const DeviceConfig> {
   }
 };
 
-// Utility class for zipping over elements of container with
-template <class Container, class Element = typename Container::value_type>
-struct DevInfoRange {
-  Container &v;
+template <typename ForwardIterator>
+class DeviceInfoZipIterator {
+  ForwardIterator it_;
+  std::ptrdiff_t idx_;
 
-  template <class TElem>
-  struct Tuple {
-    TElem &dev;
-    const DeviceConfig &dev_info;
+ public:
+  struct Value {
+    std::iter_value_t<ForwardIterator> &dev; // NOLINT
+    const DeviceConfig &meta; // NOLINT
   };
 
-  template <class BaseIterator, class ValueType>
-  class IterT {
-    BaseIterator it;
-    typename Container::difference_type idx;
+  using iterator_category = std::forward_iterator_tag;
+  using difference_type = std::iter_difference_t<ForwardIterator>;
+  using value_type = Value;
+  using pointer = void;
+  using reference = value_type;
+  using iterator_concept = std::forward_iterator_tag;
 
-   public:
-    using iterator_category = std::forward_iterator_tag;
-    using difference_type = long;
-    using value_type = ValueType;
-    using pointer = void;
-    using reference = void;
+  explicit constexpr DeviceInfoZipIterator(ForwardIterator it, std::ptrdiff_t idx = 0)
+      : it_(it), idx_(idx) {}
 
-    explicit constexpr IterT(BaseIterator it, typename Container::difference_type idx = 0)
-        : it(it), idx(idx) {}
-    constexpr value_type operator*() const { return value_type{*it, lib_devices[idx]}; }
-    bool operator!=(const IterT &other) const { return it != other.it; }
-    void operator++() {
-      ++it;
-      ++idx;
-    }
-  };
-  using iterator = IterT<typename Container::iterator, Tuple<Element>>;
-  using const_iterator = IterT<typename Container::const_iterator, Tuple<const Element>>;
-  using const_reference = Tuple<Element>;
-
-  explicit DevInfoRange(Container &v) : v(v) {}
-  DevInfoRange(const DevInfoRange &) = delete;
-
-  constexpr iterator begin() { return iterator{v.begin()}; }
-  constexpr iterator end() { return iterator{v.end(), std::distance(v.begin(), v.end())}; }
-  constexpr const_iterator begin() const { return const_iterator{v.cbegin()}; }
-  constexpr const_iterator end() const {
-    return const_iterator{v.cend(), std::distance(v.cbegin(), v.cend())};
+  value_type operator*() const { return {*it_, lib_devices[idx_]}; }
+  DeviceInfoZipIterator &operator++() {
+    ++it_;
+    ++idx_;
+    return *this;
   }
-  constexpr const DevInfoRange &crange() const noexcept { return *this; }
+
+  DeviceInfoZipIterator operator++(int) {
+    DeviceInfoZipIterator tmp = *this;
+    ++*this;
+    return tmp;
+  }
+
+  bool operator==(const DeviceInfoZipIterator &other) const { return it_ == other.it_; }
+  bool operator!=(const DeviceInfoZipIterator &other) const { return !(*this == other); }
+  difference_type operator-(const DeviceInfoZipIterator &other) const { return it_ - other.it_; }
+};
+
+// Utility class for zipping over elements of a container with device meta data
+template <typename View>
+class DeviceInfoRange {
+  View view_;
+
+ public:
+  using iterator = DeviceInfoZipIterator<std::ranges::iterator_t<View>>;
+  using const_iterator = DeviceInfoZipIterator<std::ranges::iterator_t<const View>>;
+
+  explicit DeviceInfoRange(View v) : view_(std::move(v)) {}
+
+  constexpr iterator begin() { return iterator{std::ranges::begin(view_)}; }
+  constexpr iterator end() {
+    return iterator{std::ranges::end(view_), std::ranges::distance(view_)};
+  }
+  constexpr const_iterator begin() const { return const_iterator{std::ranges::begin(view_)}; }
+  constexpr const_iterator end() const {
+    return const_iterator{std::ranges::end(view_), std::ranges::distance(view_)};
+  }
 };
 
 }  // namespace vgmtk

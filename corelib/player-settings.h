@@ -36,7 +36,9 @@ struct PlayerSettings {
 
   static PlayerSettings init_lib_defaults();
 
-  DevInfoRange<std::vector<Device>> devices_with_meta() { return DevInfoRange(devices); }
+  DeviceInfoRange<std::span<Device>> devices_with_meta() {
+    return DeviceInfoRange(std::span(devices));
+  }
   const Chip &chip(const InstanceId &i) const { return devices[i.dev_idx].chips[i.instance]; }
   const Device &device(const InstanceId &i) const { return devices[i.dev_idx]; }
 };
