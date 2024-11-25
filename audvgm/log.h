@@ -4,17 +4,9 @@
 #include <libaudcore/runtime.h>
 
 namespace vgmtk {
-    static void log_err(const char *err)
-    {
-        if (err)
-            AUDERR("%s\n", err);
-    }
-
-    static void log_warning(const char *err)
-    {
-        if (err)
-            AUDWARN("%s\n", err);
-    }
+static void log_err(const char *err) {
+  if (err) AUDERR("%s\n", err);
 }
+}  // namespace vgmtk
 
-#endif // AUDVGM__LOG_H_
+#endif  // AUDVGM__LOG_H_

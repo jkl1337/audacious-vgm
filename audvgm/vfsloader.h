@@ -32,7 +32,7 @@ class FileHandler {
   PlayerBase *player() const { return player_.get(); }
   VGMPlayer *vgm_player() const;
 
-  FileType probe_file();
+  FileType probe_file() const;
  private:
   std::unique_ptr<impl::VFSLoader, void(*)(impl::VFSLoader*)> loader_;
   std::unique_ptr<PlayerBase> player_;

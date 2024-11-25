@@ -35,7 +35,7 @@ class VFSLoaderOps {
   }
   virtual UINT8 seek(UINT32 offset, UINT8 whence) {
     if (!file_) return -1;
-    return (UINT8)file_->fseek(offset, to_vfs_seek_type(whence));
+    return static_cast<UINT8>(file_->fseek(offset, to_vfs_seek_type(whence)));
   }
   virtual UINT8 close() {
     file_ = nullptr;
@@ -73,7 +73,7 @@ class GZLoaderOps : public VFSLoaderOps {
   UINT8 eof() const override { return gz_file_.eof(); }
 
   UINT32 length() const override {
-    if (length_ != -1) return length_;
+    if (length_ != static_cast<uint32_t>(-1)) return length_;
 
     auto *file = gz_file_.file();
     if (!file) return -1;
@@ -107,7 +107,7 @@ class VFSLoader : public DATA_LOADER {
     DataLoader_Setup(this, &callbacks, this);
   }
   explicit VFSLoader(VFSFile &&file_own)
-      : _data_loader(), file_own_(std::move(file_own)), file_(file_own_) {
+      : _data_loader(), file_(file_own_), file_own_(std::move(file_own)) {
     DataLoader_Setup(this, &callbacks, this);
   }
 
@@ -115,19 +115,19 @@ class VFSLoader : public DATA_LOADER {
   VFSLoader &operator=(const VFSLoader &) = delete;
 
   UINT8 open();
-  UINT32 read(UINT8 *buffer, UINT32 numBytes) {
+  UINT32 read(UINT8 *buffer, UINT32 numBytes) const {
     if (!ops_) return 0;
     return ops_->read(buffer, numBytes);
   }
-  UINT8 seek(UINT32 offset, UINT8 whence) {
+  UINT8 seek(UINT32 offset, UINT8 whence) const {
     if (!ops_) return -1;
     return ops_->seek(offset, whence);
   }
-  UINT8 close() {
+  UINT8 close() const {
     if (!ops_) return 0;
     return ops_->close();
   }
-  INT32 tell() {
+  INT32 tell() const {
     if (!ops_) return -1;
     return ops_->tell();
   }
@@ -206,7 +206,7 @@ bool FileHandler::load() {
   if (VGMPlayer::PlayerCanLoadFile(loader_.get()) == 0) {
     player_ = std::make_unique<VGMPlayer>();
     player_->SetFileReqCallback(
-        [](void *, PlayerBase *player, const char *fileName) -> DATA_LOADER * {
+        [](void *, PlayerBase *, const char *fileName) -> DATA_LOADER * {
           auto path = filename_build({aud_get_path(AudPath::DataDir), fileName});
           if (!VFSFile::test_file(path, VFS_EXISTS)) return nullptr;
 
@@ -229,17 +229,18 @@ bool FileHandler::load() {
 }
 
 VGMPlayer *FileHandler::vgm_player() const {
-  return (player_->GetPlayerType() == FCC_VGM) ? static_cast<VGMPlayer*>(player_.get()) : nullptr;
+  return (player_->GetPlayerType() == FCC_VGM) ? static_cast<VGMPlayer *>(player_.get()) : nullptr;
 }
 
-FileHandler::FileType FileHandler::probe_file() {
+FileHandler::FileType FileHandler::probe_file() const {
   loader_->open();
   auto offset = loader_->tell();
   if (offset != 0) return kTypeNone;
 
-  const UINT8 vgm_magic[5] = "Vgm ";
+  constexpr UINT8 vgm_magic[5] = "Vgm ";
   UINT8 buffer[4];
   UINT32 bytes_read = loader_->read(buffer, 4);
+  // ReSharper disable once CppExpressionWithoutSideEffects
   loader_->seek(0, SEEK_SET);
   if (bytes_read != sizeof buffer) return kTypeNone;
   if (!std::memcmp(buffer, vgm_magic, sizeof buffer)) return kTypeVGM;
