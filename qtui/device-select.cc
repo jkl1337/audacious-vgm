@@ -148,10 +148,9 @@ DeviceTreeModel::DeviceTreeModel(vgmtk::SettingsManager& settings_manager,
       if (dev_idx < 0) continue;
       now_playing.push_back({dev_idx, a.instance, a.core, vgmtk::accurate_chip_name(a)});
     }
-    std::sort(now_playing.begin(), now_playing.end(), playing_device_comp);
-    std::set_symmetric_difference(now_playing.begin(), now_playing.end(),
-                                  self->playing_devices_.begin(), self->playing_devices_.end(),
-                                  std::back_inserter(changed), playing_device_comp);
+    std::ranges::sort(now_playing, playing_device_comp);
+    std::ranges::set_symmetric_difference(now_playing, self->playing_devices_,
+                                          std::back_inserter(changed), playing_device_comp);
 
     if (changed.empty()) return;
     std::swap(self->playing_devices_, now_playing);
@@ -340,16 +339,16 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
       bool playing = false;
       switch (node.level()) {
         case NodeLocator::NodeLevel::device:
-          playing = std::binary_search(playing_devices_.begin(), playing_devices_.end(),
-                                       PlayingDevice{.dev_idx = row},
-                                       [](const PlayingDevice& lhs, const PlayingDevice& rhs) {
-                                         return lhs.dev_idx < rhs.dev_idx;
-                                       });
+          playing =
+              std::ranges::binary_search(playing_devices_, PlayingDevice{.dev_idx = row},
+                                         [](const PlayingDevice& lhs, const PlayingDevice& rhs) {
+                                           return lhs.dev_idx < rhs.dev_idx;
+                                         });
           break;
         case NodeLocator::NodeLevel::instance:
-          playing = std::binary_search(playing_devices_.begin(), playing_devices_.end(),
-                                       PlayingDevice{.dev_idx = node.dev_idx(), .instance = row},
-                                       playing_device_comp);
+          playing = std::ranges::binary_search(
+              playing_devices_, PlayingDevice{.dev_idx = node.dev_idx(), .instance = row},
+              playing_device_comp);
           break;
         default:
           break;

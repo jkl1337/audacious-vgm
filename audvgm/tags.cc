@@ -1,12 +1,11 @@
 
 #include "tags.h"
 
-#include <climits>
-#include <cstring>
-
 #include <libaudcore/runtime.h>
 #include <libaudcore/tuple.h>
 
+#include <climits>
+#include <cstring>
 #include <libvgm/player/playerbase.hpp>
 
 #include "config.h"
@@ -40,10 +39,11 @@ void TagHandler::get_tags(PlayerBase &player, Tuple &tuple) {
     Tuple::Field field;
     const char *val;
   };
-  std::array<MultiTag, 4> final_tags = {{{"TITLE", "TITLE-JPN", Tuple::Title},
-                                         {"ARTIST", "ARTIST-JPN", Tuple::Artist},
-                                         {"GAME", "GAME-JPN", Tuple::Album},
-                                         {"SYSTEM", "SYSTEM-JPN", Tuple::Codec}}};
+  auto final_tags =
+      std::to_array<MultiTag>({{.en = "TITLE", .jp = "TITLE-JPN", .field = Tuple::Title},
+                               {.en = "ARTIST", .jp = "ARTIST-JPN", .field = Tuple::Artist},
+                               {.en = "GAME", .jp = "GAME-JPN", .field = Tuple::Album},
+                               {.en = "SYSTEM", .jp = "SYSTEM-JPN", .field = Tuple::Codec}});
 
   int loop_count = aud_get_int(VGM_CFGID, cfg::kLoopCount);
   int fade_length = aud_get_int(VGM_CFGID, cfg::kFadeLength);
@@ -93,7 +93,7 @@ void TagHandler::get_tags(PlayerBase &player, Tuple &tuple) {
   }
 }
 
-bool Plugin::read_tag(const char *, VFSFile &file, Tuple &tuple, Index<char> *art) {
+bool Plugin::read_tag(const char *, VFSFile &file, Tuple &tuple, Index<char> *) {
   FileHandler fh(file);
   if (!fh.load()) return false;
 
@@ -101,7 +101,7 @@ bool Plugin::read_tag(const char *, VFSFile &file, Tuple &tuple, Index<char> *ar
   return true;
 }
 
-bool Plugin::is_our_file(const char *filename, VFSFile &file) {
+bool Plugin::is_our_file(const char *, VFSFile &file) {
   FileHandler fh(file);
   return fh.probe_file() == FileHandler::kTypeVGM;
 }

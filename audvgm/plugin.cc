@@ -3,7 +3,6 @@
 
 #include <libaudcore/hook.h>
 #include <libaudcore/i18n.h>
-#include <libaudcore/interface.h>
 #include <libaudcore/preferences.h>
 #include <libaudcore/runtime.h>
 #include <qtui/qvgm-factory.h>
@@ -11,29 +10,27 @@
 #include "config.h"
 
 namespace audqt {
-void plugin_prefs(PluginHandle *ph);
+void plugin_prefs(PluginHandle *ph);  // NOLINT
 }
 
-LIBAUDCORE_PUBLIC vgmtk::Plugin aud_plugin_instance;
+LIBAUDCORE_PUBLIC vgmtk::Plugin aud_plugin_instance;  // NOLINT
 
 namespace vgmtk {
 
-SettingsManager *Plugin::settings_hack = nullptr;
+SettingsManager *Plugin::global_settings = nullptr;
 
 bool Plugin::init() {
   set_defaults();
 
   playback_status_ = new PlaybackStatus;
-  PlayerSettings ps = PlayerSettings::init_lib_defaults();
+  const PlayerSettings ps = PlayerSettings::init_lib_defaults();
 
   settings_container_ = new SettingsManager(ps);
-  settings_hack = settings_container_;
+  global_settings = settings_container_;
 
   hook_associate(
       "audvgm init",
-      [](void *data, void *user) {
-        audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance));
-      },
+      [](void *, void *) { audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance)); },
       nullptr);
   event_queue("audvgm init", nullptr);
   // aud_plugin_menu_add(AudMenuID::Main, vgmtk::vgm_configure, _("VGM Configure..."), nullptr);
@@ -56,6 +53,7 @@ const char *const Plugin::exts[] = {"vgm", "vgz", nullptr};
 
 namespace {
 
+#if 0
 int playback_rate_item_selected;
 
 const ComboItem playback_rate_items[] = {
@@ -77,7 +75,7 @@ inline int playback_rate_preset(int r) {
 }
 
 ::ArrayRef<ComboItem> playback_rate_combo_fill() {
-  ::ArrayRef<ComboItem> items(playback_rate_items);
+  ::ArrayRef items(playback_rate_items);
   playback_rate_item_selected = playback_rate_preset(aud_get_int(VGM_CFGID, cfg::kPlaybackRate));
   if (playback_rate_item_selected != -1) items.len = 3;
   return items;
@@ -94,30 +92,31 @@ void playback_rate_entry_change() {
   hook_call("audvgm config playback_rate", nullptr);
 }
 
-const PreferencesWidget playback_rate_widgets[] = {
+constexpr PreferencesWidget playback_rate_widgets[]{
     WidgetCombo(N_("Playback Rate"),
                 WidgetInt(playback_rate_item_selected, playback_rate_combo_change,
                           "audvgm config playback_rate"),
-                {{}, playback_rate_combo_fill}),
+                {.elems = {}, .fill = playback_rate_combo_fill}),
     WidgetSpin(nullptr,
                WidgetInt(VGM_CFGID, cfg::kPlaybackRate, playback_rate_entry_change,
                          "audvgm config playback_rate"),
-               {0, 8000, 1, N_("Hz")}),
+               {.min = 0, .max = 8000, .step = 1, .right_label = N_("Hz")}),
 };
 
-const ComboItem resampler_quality_items[] = {
+constexpr ComboItem resampler_quality_items[]{
     {N_("High"), cfg::kResampleQualityHQ},
     {N_("HQ up, LQ down"), cfg::kResampleQualityHQUp},
     {N_("Low"), cfg::kResampleQualityLQ},
 };
 
-const ComboItem chip_sr_mode_items[] = {
+constexpr ComboItem chip_sr_mode_items[]{
     {N_("Native"), cfg::kChipSrModeNative},
     {N_("Highest"), cfg::kChipSrModeHighest},
     {N_("Custom"), cfg::kChipSrModeCustom},
 };
+#endif
 
-const PreferencesWidget length_widgets[] = {
+constexpr PreferencesWidget length_widgets[]{
     WidgetLabel(N_("<b>Length</b>")),
     WidgetSpin(N_("Loop Count:"), WidgetInt(VGM_CFGID, cfg::kLoopCount),
                {1, 14400, 1, N_("times")}),
@@ -125,7 +124,8 @@ const PreferencesWidget length_widgets[] = {
                {0, 360000, 200, N_("ms")}),
     WidgetCheck(N_("Hard stop old VGMs"), WidgetBool(VGM_CFGID, cfg::kHardStopOld)),
     WidgetLabel(N_("<b>Gap between tracks</b>")),
-    WidgetSpin(N_("Looping:"), WidgetInt(VGM_CFGID, cfg::kGapLooping), {0, 360000, 200, N_("ms")}),
+    WidgetSpin(N_("Looping:"), WidgetInt(VGM_CFGID, cfg::kGapLooping),
+               {.min = 0, .max = 360000, .step = 200, .right_label = N_("ms")}),
     WidgetSpin(N_("Non-looping:"), WidgetInt(VGM_CFGID, cfg::kGapNonLooping),
                {0, 360000, 200, N_("ms")}),
     WidgetLabel(N_("<b>Tags</b>")),
@@ -133,18 +133,19 @@ const PreferencesWidget length_widgets[] = {
     WidgetCheck(N_("Guess track number from file name"),
                 WidgetBool(VGM_CFGID, cfg::kGuessTrackNum))};
 
-void test_callback() {
+void soundfx_callback() {
   auto gain = aud_get_double(VGM_CFGID, cfg::kGain);
   auto surround = aud_get_bool(VGM_CFGID, cfg::kSurround);
-  auto m = Plugin::settings_hack->writer();
+  auto m = Plugin::global_settings->writer();
   m.set_gain(gain);
   m.set_surround(surround);
 }
 
-const PreferencesWidget playback_widgets[] = {
+constexpr PreferencesWidget playback_widgets[]{
     WidgetLabel(N_("<b>Playback Quality</b>")),
     WidgetSpin(N_("Sample Rate"), WidgetInt(VGM_CFGID, cfg::kSampleRate),
-               {8000, 96000, 50, N_("Hz")}),
+               {.min = 8000, .max = 96000, .step = 50, .right_label = N_("Hz")}),
+#if 0
     WidgetCombo(N_("Resample Quality"), WidgetString(VGM_CFGID, cfg::kResampleQuality),
                 {{resampler_quality_items}}),
     WidgetBox({{playback_rate_widgets}, true}),
@@ -152,32 +153,35 @@ const PreferencesWidget playback_widgets[] = {
                 {{chip_sr_mode_items}}),
     WidgetSpin(N_("Chip Rate"), WidgetInt(VGM_CFGID, cfg::kChipSampleRate),
                {0, 96000, 50, N_("Hz")}),
+#endif
     WidgetLabel(N_("<b>Audio Post Process</b>")),
-    WidgetSpin(N_("Gain"), WidgetFloat(VGM_CFGID, cfg::kGain, test_callback), {0.0, 4.0, 0.005}),
-    WidgetCheck(N_("\"Surround\" Sound"), WidgetBool(VGM_CFGID, cfg::kSurround, test_callback)),
+    WidgetSpin(N_("Gain"), WidgetFloat(VGM_CFGID, cfg::kGain, soundfx_callback),
+               {.min = 0.0, .max = 4.0, .step = 0.005}),
+    WidgetCheck(N_("\"Surround\" Sound"), WidgetBool(VGM_CFGID, cfg::kSurround, soundfx_callback)),
     WidgetCheck(N_("Double SSG volume"), WidgetBool(VGM_CFGID, cfg::kSSG2XVol)),
 };
 
-const PreferencesWidget general_widgets_columns[] = {
-    WidgetBox({length_widgets}),
+constexpr PreferencesWidget general_widgets_columns[]{
+    WidgetBox({.widgets = length_widgets}),
     WidgetSeparator(),
-    WidgetBox({playback_widgets}),
+    WidgetBox({.widgets = playback_widgets}),
 };
 
-const PreferencesWidget general_widgets[] = {WidgetBox({{general_widgets_columns}, true})};
+constexpr PreferencesWidget general_widgets[]{
+    WidgetBox({.widgets = {general_widgets_columns}, .horizontal = true})};
 
-const PreferencesWidget chip_widgets[] = {WidgetCustomQt([]() -> void * {
+constexpr PreferencesWidget chip_widgets[]{WidgetCustomQt([]() -> void * {
   const auto &plugin = aud_plugin_instance;
   return vgmqt::create_qvgm_control_panel(plugin.playback_status(), plugin.settings_manager());
 })};
 
-const NotebookTab notebook_tabs[] = {{N_("General"), {general_widgets}},
-                                     {N_("Other Options"), {chip_widgets}}};
+constexpr NotebookTab notebook_tabs[]{{.name = N_("General"), .widgets = {general_widgets}},
+                                      {.name = N_("Other Options"), .widgets = {chip_widgets}}};
 
-const PreferencesWidget widgets[] = {WidgetNotebook({{notebook_tabs}})};
+constexpr PreferencesWidget widgets[]{WidgetNotebook({{notebook_tabs}})};
 
 }  // namespace
 
-const PluginPreferences Plugin::prefs = {widgets};
+constexpr PluginPreferences Plugin::prefs{.widgets = widgets};
 
 }  // namespace vgmtk

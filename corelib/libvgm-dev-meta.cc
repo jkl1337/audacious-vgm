@@ -16,24 +16,15 @@ using namespace vgmtk;
 
 namespace {
 
-constexpr std::array sn76489_cname{"Noise"};
-constexpr std::array ym2413_cname{"Bass Drum", "Snare Drum", "Tom Tom", "Cymbal", "Hi-Hat"};
-constexpr std::array ym2612_cname{"DAC"};
-constexpr std::array delta_t_cname{"Delta-T"};
-constexpr std::array gb_cname{"Square 1", "Square 2", "Prog. Wave", "Noise"};
-constexpr std::array nes_cname{"Square 1", "Square 2", "Triangle", "Noise", "DPCM", "FDS"};
+constexpr const char* sn76489_cname[]{"Noise"};
+constexpr const char* ym2413_cname[]{"Bass Drum", "Snare Drum", "Tom Tom", "Cymbal", "Hi-Hat"};
+constexpr const char* ym2612_cname[]{"DAC"};
+constexpr const char* delta_t_cname[]{"Delta-T"};
+constexpr const char* gb_cname[]{"Square 1", "Square 2", "Prog. Wave", "Noise"};
+constexpr const char* nes_cname[]{"Square 1", "Square 2", "Triangle", "Noise", "DPCM", "FDS"};
 
 using ChG = ChannelGroup;
 using Cr = CoreSpec;
-
-constexpr std::size_t dynamic_extent = static_cast<std::size_t>(-1);
-template<typename CharT, std::size_t Extent = dynamic_extent>
-using basic_zstring = CharT*;
-
-using czstring = basic_zstring<const char, dynamic_extent>;
-
-template<std::size_t N>
-using ChGs = std::array<ChannelGroup, N>;
 
 constexpr ChG sn76489_cg[]{{3, sn76489_cname}};
 constexpr ChG ym2413_cg[]{{9, ym2413_cname}};
@@ -41,30 +32,30 @@ constexpr ChG ym2612_cg[]{{6, ym2612_cname}};
 constexpr  ChG s1ch_cg[]{{1}}, s3ch_cg[]{{3}}, s4ch_cg[]{{4}}, s5ch_cg[]{{5}}, s6ch_cg[]{{5}},
     s8ch_cg[]{{8}}, s12ch_cg[]{{12}}, s16ch_cg[]{{16}}, s24ch_cg[]{{24}}, s28ch_cg[]{{28}},
     s32ch_cg[]{{32}};
-constexpr ChG ym22_cg[]{{3, nullptr, "FM"}};
-const ChG ym26_cg[]{{6, nullptr, "FM"}, {6, nullptr, "PCM"}, {0, delta_t_cname}};
-const ChG y8950_cg[]{{9, ym2413_cname}, {0, delta_t_cname}};
-const ChG ymf262_cg[]{{18, ym2413_cname}};
-const ChG gb_cg[]{{0, gb_cname}};
-const ChG nes_cg[]{{0, nes_cname}};
+constexpr ChG ym22_cg[]{{3, {}, "FM"}};
+constexpr ChG ym26_cg[]{{6, {}, "FM"}, {6, {}, "PCM"}, {0, delta_t_cname}};
+constexpr ChG y8950_cg[]{{9, ym2413_cname}, {0, delta_t_cname}};
+constexpr ChG ymf262_cg[]{{18, ym2413_cname}};
+constexpr ChG gb_cg[]{{0, gb_cname}};
+constexpr ChG nes_cg[]{{0, nes_cname}};
 
-const Cr mame_cs[]{{FCC_MAME}};
-const Cr sn76489_cs[]{{FCC_MAME}, {FCC_MAXM, "Maxim", true}};
-const Cr ym2413_cs[]{{FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
-const Cr ym2612_cs[]{{FCC_GPGX, "GPGX", false}, {FCC_NUKE, "Nuked OPN2"}, {FCC_GENS, "GENS"}};
-const Cr rf5c68_cs[]{{FCC_MAME}, {FCC_GENS, "GENS"}};
-const Cr ym3812_cs[]{{FCC_MAME}, {FCC_ADLE, "AdLibEmu"}, {FCC_NUKE, "Nuked OPL"}};
-const Cr ymf278b_cs[]{{FCC_OMSX, "openMSX"}};
-const Cr gens_cs[]{{FCC_GENS, "Gens/GS"}};
-const Cr ay8910_cs[]{{FCC_EMU_, "EMU2149", true}};
-const Cr nes_cs[]{{FCC_NSFP, "NSFPlay"}, {FCC_MAME}};
-const Cr c6280_cs[]{{FCC_OOTK, "Ootake"}, {FCC_MAME}};
-const Cr qsound_cs[]{{FCC_CTR_, "ctr"}, {FCC_MAME}};
-const Cr wswan_cs[]{{0, "in_wsr"}};
-const Cr vboy_cs[]{{FCC_MEDN, "Mednafen"}};
-const Cr saa_cs[]{{FCC_MAME}, {FCC_VBEL, "Valley Bell"}};
-const Cr mikey_cs[]{{FCC_LAOO}};
-const Cr ym2151_cs[]{{FCC_MAME}, {FCC_NUKE, "Nuked OPM"}};
+constexpr Cr mame_cs[]{{FCC_MAME}};
+constexpr Cr sn76489_cs[]{{FCC_MAME}, {FCC_MAXM, "Maxim", true}};
+constexpr Cr ym2413_cs[]{{FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
+constexpr Cr ym2612_cs[]{{FCC_GPGX, "GPGX", false}, {FCC_NUKE, "Nuked OPN2"}, {FCC_GENS, "GENS"}};
+constexpr Cr rf5c68_cs[]{{FCC_MAME}, {FCC_GENS, "GENS"}};
+constexpr Cr ym3812_cs[]{{FCC_MAME}, {FCC_ADLE, "AdLibEmu"}, {FCC_NUKE, "Nuked OPL"}};
+constexpr Cr ymf278b_cs[]{{FCC_OMSX, "openMSX"}};
+constexpr Cr gens_cs[]{{FCC_GENS, "Gens/GS"}};
+constexpr Cr ay8910_cs[]{{FCC_EMU_, "EMU2149", true}};
+constexpr Cr nes_cs[]{{FCC_NSFP, "NSFPlay"}, {FCC_MAME}};
+constexpr Cr c6280_cs[]{{FCC_OOTK, "Ootake"}, {FCC_MAME}};
+constexpr Cr qsound_cs[]{{FCC_CTR_, "ctr"}, {FCC_MAME}};
+constexpr Cr wswan_cs[]{{0, "in_wsr"}};
+constexpr Cr vboy_cs[]{{FCC_MEDN, "Mednafen"}};
+constexpr Cr saa_cs[]{{FCC_MAME}, {FCC_VBEL, "Valley Bell"}};
+constexpr Cr mikey_cs[]{{FCC_LAOO}};
+constexpr Cr ym2151_cs[]{{FCC_MAME}, {FCC_NUKE, "Nuked OPM"}};
 
 constexpr std::array<OnOffOption,3> ym2612_chip_type_opts{{
     {.label="YM2612", .doc="Emulate original YM2612", .value=OPT_YM2612_TYPE_OPN2},
@@ -132,8 +123,8 @@ constexpr OptionSpec c352_opts[]{
 constexpr OptionSpec ga20_opts[]{
     {"Linear interpolation", "Enable linear interpolation for samples.", OPT_GA20_INTERPOLATE}};
 
-constexpr int kIdxAY8910 = 17;
-constexpr int kIdxYMF262 = 12;
+constexpr int index_AY8910 = 17;
+constexpr int index_YMF262 = 12;
 
 constexpr DeviceConfig lib_devices_p[kNumDevices]{
     {.devid=DEVID_SN76496, .label="SN76496", .channels=sn76489_cg, .cores=sn76489_cs},
@@ -142,9 +133,9 @@ constexpr DeviceConfig lib_devices_p[kNumDevices]{
     {.devid=DEVID_YM2151, .label="YM2151", .channels=s8ch_cg, .cores=ym2151_cs},
     {.devid=DEVID_SEGAPCM, .label="Sega PCM", .channels=s16ch_cg, .cores=mame_cs},
     {.devid=DEVID_RF5C68, .label="RF5C68", .channels=s8ch_cg, .cores=rf5c68_cs},
-    {.devid=DEVID_YM2203, .label="YM2203", .channels=ym22_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + kIdxAY8910, .prefix="PSG"}},
-    {.devid=DEVID_YM2608, .label="YM2608", .channels=ym26_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + kIdxAY8910, .prefix="PSG"}},
-    {.devid=DEVID_YM2610, .label="YM2610", .channels=ym26_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + kIdxAY8910, .prefix="PSG"}},
+    {.devid=DEVID_YM2203, .label="YM2203", .channels=ym22_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + index_AY8910, .prefix="PSG"}},
+    {.devid=DEVID_YM2608, .label="YM2608", .channels=ym26_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + index_AY8910, .prefix="PSG"}},
+    {.devid=DEVID_YM2610, .label="YM2610", .channels=ym26_cg, .cores=mame_cs, .options={}, .linked=LinkSpec{.dev=lib_devices_p + index_AY8910, .prefix="PSG"}},
     {.devid=DEVID_YM3812, .label="YM3812", .channels=ym2413_cg, .cores=ym3812_cs},
     {.devid=DEVID_YM3526, .label="YM3526", .channels=ym2413_cg, .cores=mame_cs},
     {.devid=DEVID_Y8950, .label="Y8950", .channels=y8950_cg, .cores=mame_cs},
@@ -154,7 +145,7 @@ constexpr DeviceConfig lib_devices_p[kNumDevices]{
      .channels=s24ch_cg,
      .cores=ymf278b_cs,
      .options={},
-     .linked=LinkSpec{lib_devices_p + kIdxYMF262, "FM"}},
+     .linked=LinkSpec{lib_devices_p + index_YMF262, "FM"}},
     {.devid=DEVID_YMF271, .label="YMF271", .channels=s12ch_cg, .cores=mame_cs},
     {.devid=DEVID_YMZ280B, .label="YMZ280B", .channels=s8ch_cg, .cores=mame_cs},
     {.devid=DEVID_32X_PWM, .label="PWM", .channels=s1ch_cg, .cores=gens_cs},
@@ -184,11 +175,11 @@ constexpr DeviceConfig lib_devices_p[kNumDevices]{
     {.devid=DEVID_GA20, .label="Irem GA20", .channels=s4ch_cg, .cores=mame_cs, .options=ga20_opts},
     {.devid=DEVID_MIKEY, .label="MIKEY", .channels=s4ch_cg, .cores=mikey_cs}};
 
-static_assert(lib_devices_p[kIdxYMF262].devid == DEVID_YMF262, "kIdxYMF262 is incorrect.");
-static_assert(lib_devices_p[kIdxAY8910].devid == DEVID_AY8910, "kIdxAY8910 is incorrect.");
+static_assert(lib_devices_p[index_YMF262].devid == DEVID_YMF262, "index_YMF262 is incorrect.");
+static_assert(lib_devices_p[index_AY8910].devid == DEVID_AY8910, "index_AY8910 is incorrect.");
 }  // namespace
 
-const std::size_t vgmtk::num_devices = sizeof(lib_devices_p) / sizeof(lib_devices_p[0]);
+const std::size_t vgmtk::num_devices = std::size(lib_devices_p);
 const DeviceConfigList vgmtk::lib_devices(lib_devices_p, num_devices);
 
 #pragma clang diagnostic push
@@ -230,7 +221,7 @@ const char* vgmtk::core_name(uint32_t core_id) {
 
 // FIXME: This does not handle YM2612 correctly at the least.
 const char* vgmtk::accurate_chip_name(const PLR_DEV_INFO& info) {
-  uint32_t flags = info.devCfg->flags;
+  const uint32_t flags = info.devCfg->flags;
   switch (info.type) {
     case DEVID_SN76496: {
       if (info.instance == 1 && flags & (1 << 31)) {
@@ -286,6 +277,8 @@ const char* vgmtk::accurate_chip_name(const PLR_DEV_INFO& info) {
           return "YMZ284";
         case 0x13:
           return "YMZ294";
+        default:
+          break;
       }
     } break;
     case DEVID_NES_APU:

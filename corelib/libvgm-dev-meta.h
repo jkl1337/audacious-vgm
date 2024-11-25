@@ -20,38 +20,12 @@ constexpr int kMaxAllChannels = 64;
 
 constexpr uint_least32_t core_invalid = std::numeric_limits<uint_least32_t>::max();
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "google-explicit-constructor"
-#pragma ide diagnostic ignored "hicpp-explicit-conversions"
-template <class T>
-struct ArrayRef {
-  const T *data;
-  int len;
-
-  constexpr ArrayRef(decltype(nullptr) = nullptr) : data(nullptr), len(0) {}
-
-  template <std::size_t N>
-  constexpr ArrayRef(const T (&array)[N]) : data(array), len(N) {}
-
-  template <std::size_t N>
-  constexpr ArrayRef(const std::array<T, N> &a) : data(a.data()), len(N) {}
-
-  constexpr ArrayRef(const T *data, int len) : data(data), len(len) {}
-
-  constexpr const T &operator[](int pos) const { return data[pos]; }
-  constexpr int size() const { return len; }
-
-  const T *begin() const { return data; }
-  const T *end() const { return data + len; }
-};
-#pragma clang diagnostic pop
-
 struct ChannelGroup {
   int serial = 0;
-  ArrayRef<const char *> named;
+  std::span<const char * const> named;
   char group[8] = {};
 
-  constexpr bool valid() const { return serial || named.len; }
+  constexpr bool valid() const { return serial || named.size(); }
   constexpr const char *name() const { return group[0] ? group : nullptr; }
 };
 
@@ -67,7 +41,7 @@ struct ChoiceOption {
   const char *label = nullptr;
   const char *doc = nullptr;
 
-  const ArrayRef<OnOffOption> choices;
+  const std::span<const OnOffOption> choices;
 };
 
 struct OptionSpec {
@@ -83,7 +57,7 @@ struct OptionSpec {
                        uint_least32_t core = core_invalid)
       : type(Type::onoff), sw{label, doc, value}, core(core) {}
 
-  constexpr OptionSpec(const char *label, const char *doc, ArrayRef<OnOffOption> choices,
+  constexpr OptionSpec(const char *label, const char *doc, std::span<const OnOffOption> choices,
                        uint_least32_t core = core_invalid)
       : type(Type::choice), choice{label, doc, choices}, core(core) {}
 
@@ -119,15 +93,14 @@ class DeviceConfig {
   uint_least32_t devid{core_invalid};
   char label[12]{};
 
-  ArrayRef<ChannelGroup> channels;
-  ArrayRef<CoreSpec> cores;
-
-  ArrayRef<OptionSpec> options;
+  std::span<const ChannelGroup> channels;
+  std::span<const CoreSpec> cores;
+  std::span<const OptionSpec> options;
 
   LinkSpec linked;
 
-  constexpr int num_cores() const { return cores.len; }
-  constexpr bool has_options() const { return options.len; }
+  constexpr int num_cores() const { return cores.size(); }
+  constexpr bool has_options() const { return options.size(); }
   constexpr bool has_linked() const { return linked.valid(); }
   constexpr bool valid() const { return devid != core_invalid; }
 
@@ -142,7 +115,7 @@ class DeviceConfig {
     int count = 0;
     for (const auto &[serial, named, group] : channels) {
       count += serial;
-      count += named.len;
+      count += named.size();
     }
     return count;
   }
@@ -163,21 +136,21 @@ class DeviceConfig {
   }
 };
 
-class DeviceConfigList : public ArrayRef<DeviceConfig> {
+class DeviceConfigList : public std::span<const DeviceConfig> {
  public:
   constexpr DeviceConfigList(const DeviceConfig *data, int len)
-      : ArrayRef<DeviceConfig>(data, len) {}
+      : std::span<const DeviceConfig>(data, len) {}
 
   const DeviceConfig *find(unsigned int devid) const {
-    for (const auto *it = begin(); it != end(); ++it) {
-      if (it->devid == devid) return it;
+    for (auto it = begin(); it != end(); ++it) {
+      if (it->devid == devid) return &*it;
     }
     return nullptr;
   }
 
   int find_index(unsigned int devid) const {
     const auto *d = find(devid);
-    return d ? d - begin() : -1;
+    return d ? d - &*begin() : -1;
   }
 };
 

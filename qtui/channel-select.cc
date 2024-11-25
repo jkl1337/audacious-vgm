@@ -14,31 +14,29 @@ class NodeLocator {
   enum class NodeLevel : uint8_t { root = 0, device, channel };
 
   friend constexpr NodeLevel &operator++(NodeLevel &l) {
-    return l = (l == NodeLevel::channel)
-                   ? l
-                   : l = static_cast<NodeLevel>(static_cast<uint8_t>(l) + 1);
+    return l = (l == NodeLevel::channel) ? l
+                                         : l = static_cast<NodeLevel>(static_cast<uint8_t>(l) + 1);
   }
   friend constexpr NodeLevel &operator--(NodeLevel &l) {
-    return l = (l == NodeLevel::root)
-                   ? l
-                   : l = static_cast<NodeLevel>(static_cast<uint8_t>(l) - 1);
+    return l = (l == NodeLevel::root) ? l : l = static_cast<NodeLevel>(static_cast<uint8_t>(l) - 1);
   }
 
  private:
   class NodeInternal {
     uint_fast16_t loc_;
 
-    static constexpr unsigned ctx_bit_start = 0, ctx_bit_width = 14, level_bit_start = ctx_bit_width,
-                                    level_bit_width = 2;
+    static constexpr unsigned ctx_bit_start = 0, ctx_bit_width = 14,
+                              level_bit_start = ctx_bit_width, level_bit_width = 2;
     static_assert(ctx_bit_width + level_bit_width == 16, "locator bitfield incorrect size");
 
     static constexpr unsigned level_bit_mask = width_to_mask(level_bit_width),
-                                    ctx_bit_mask = width_to_mask(ctx_bit_width);
+                              ctx_bit_mask = width_to_mask(ctx_bit_width);
 
    public:
     explicit constexpr NodeInternal(uintptr_t v = 0) : loc_(v) {}
     constexpr NodeInternal(NodeLevel level, int ctx)
-        : loc_(((static_cast<uint16_t>(level) & level_bit_mask) << level_bit_start) | ((ctx & ctx_bit_mask) << ctx_bit_start)) {}
+        : loc_(((static_cast<uint16_t>(level) & level_bit_mask) << level_bit_start) |
+               ((ctx & ctx_bit_mask) << ctx_bit_start)) {}
 
     constexpr operator uintptr_t() const { return loc_; }
 
@@ -93,7 +91,7 @@ ChannelTreeModel::ChannelTreeModel(vgmtk::SettingsManager &settings_manager,
       if (dev_idx < 0) continue;
       now_active.push_back({dev_idx, a.instance, 0});
     }
-    std::sort(now_active.begin(), now_active.end(), [](const auto &l, const auto &r) {
+    std::ranges::sort(now_active, [](const auto &l, const auto &r) {
       return (l.dev_idx < r.dev_idx) || (l.dev_idx == r.dev_idx && l.instance < r.instance);
     });
     if (now_active == self->active_devices_) return;

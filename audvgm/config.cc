@@ -3,7 +3,6 @@
 #include <corelib/libvgm-dev-meta.h>
 #include <corelib/libvgm-iface.h>
 #include <corelib/tagging.h>
-
 #include <libaudcore/runtime.h>
 
 #include <libvgm/player/vgmplayer.hpp>
@@ -25,7 +24,7 @@ static std::string dev_name_to_key(const char* label) {
 
 static std::string make_all_devices_list() {
   std::string value;
-  value.reserve(vgmtk::lib_devices.len * 9);
+  value.reserve(vgmtk::lib_devices.size() * 9);
 
   const char* sep = "";
   for (const auto& d : vgmtk::lib_devices) {

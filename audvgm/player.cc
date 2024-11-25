@@ -4,6 +4,7 @@
 #include <libvgm/emu/cores/2612intf.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <libvgm/player/playerbase.hpp>
 #include <libvgm/player/vgmplayer.hpp>
@@ -17,9 +18,9 @@ namespace vgmtk {
 
 namespace {
 
-constexpr const int kNChannels = 2;
-constexpr const int kBufferSizeSamples = 4096;
-constexpr const int kRenderBlockSizeSamples = 1024;
+constexpr int kNChannels = 2;
+constexpr int kBufferSizeSamples = 4096;
+constexpr int kRenderBlockSizeSamples = 1024;
 
 void dump_info(PlayerBase &player) {
   auto &vgm_player = static_cast<VGMPlayer &>(player);
@@ -37,60 +38,11 @@ void dump_info(PlayerBase &player) {
     UINT8 messed_up = dev.type == DEVID_RF5C68 ? 0x10 : dev.type;
     auto *chip_device = vgm_player.GetDevicePtr(messed_up, chip_id);
     if (!chip_device) chip_device = vgm_player.GetDevicePtr(DEVID_RF5C68, chip_id);
-    auto *base_dev = &chip_device->base;
-
-    auto *dev_info = &base_dev->defInf;
-    const auto *dev_def = dev_info->devDef;
-
-    const auto *dt = lib_devices.find(dev.type);
-
-    printf(R"EOT(
-AccuChip!!: %s
-name: %s
-author: %s
-)EOT",
-           vgmtk::accurate_chip_name(dev), dev_def->name, dev_def->author);
-
-    printf(R"EOT(srcSR: %u dstSR: %u linkDevCount: %u
-)EOT",
-           base_dev->resmpl.smpRateSrc, base_dev->resmpl.smpRateDst, dev_info->linkDevCount);
-    if (dev_info->linkDevCount) {
-      printf("link ID: %d\n", dev_info->linkDevs[0].devID);
-    }
-    printf(R"(ID: %u
-Type: 0x%x
-Instance: 0x%x
-Volume: %u
-Core: %s
-Clock: %u
-Params: 0x%x
-SR: %u
-
-
-)",
-           dev.id, dev.type, dev.instance, dev.volume, dt->core_name(dev.core), dev.devCfg->clock,
-           dev.devCfg->flags, dev.smplRate);
-    fflush(stdout);
   }
 }
 
-struct Frame {
-  int_fast32_t l;
-  int_fast32_t r;
-};
-
-inline void pack_frame(int32_t *out, const Frame f) {
-  out[0] = f.l;
-  out[1] = f.r;
-}
-
-inline void pack_frame(int16_t *out, const Frame f) {
-  out[0] = f.l / 256;
-  out[1] = f.r / 256;
-}
-
 template <typename PosT, typename CntT>
-static CntT fade_start_index(PosT remaining_frames, PosT fade_frames, CntT num_frames) {
+CntT fade_start_index(PosT remaining_frames, PosT fade_frames, CntT num_frames) {
   CntT index = num_frames;
   if (remaining_frames > fade_frames) {
     PosT f = remaining_frames - fade_frames;
@@ -101,44 +53,6 @@ static CntT fade_start_index(PosT remaining_frames, PosT fade_frames, CntT num_f
     index = 0;
   }
   return index;
-}
-
-/**
- * Applies postprocessing of rendered audio, including gain, "surround" sound and
- * fading. Packs into buffer of type BufT.
- */
-template <typename BufT, typename CntT, typename PosT = uint_fast32_t>
-void process_frames(BufT *out, PosT remaining_frames, PosT fade_frames, CntT num_frames,
-                    WAVE_32BS *data, float gain, bool surround) {
-  constexpr long kSampMin = -(1 << 24) / 2;
-  constexpr long kSampMax = (1 << 24) / 2 - 1;
-
-  int_fast64_t gain_fp = gain * 256;
-  const int_fast64_t gains[2]{gain_fp, surround ? -gain_fp : gain_fp};
-  int_fast64_t s[2];
-
-  CntT fade_start_i = fade_start_index(remaining_frames, fade_frames, num_frames);
-
-  for (CntT i = 0; i < num_frames; ++i) {
-    s[0] = data[i].L;
-    s[1] = data[i].R;
-
-    if (i >= fade_start_i) {
-      uint_fast64_t fade_volume = uint_fast64_t{remaining_frames - i} << 24;
-      fade_volume /= fade_frames;
-      fade_volume *= fade_volume;
-      fade_volume >>= 24;
-
-      s[0] = ((s[0] * static_cast<int_fast64_t>(fade_volume)) / (1 << 24));
-      s[1] = ((s[1] * static_cast<int_fast64_t>(fade_volume)) / (1 << 24));
-    }
-    s[0] = (s[0] * gains[0]) / 256;
-    s[1] = (s[1] * gains[1]) / 256;
-    pack_frame(
-        out, Frame{static_cast<int_fast32_t>(std::clamp<int_fast64_t>(s[0], kSampMin, kSampMax)),
-                   static_cast<int_fast32_t>(std::clamp<int_fast64_t>(s[1], kSampMin, kSampMax))});
-    out += 2;
-  }
 }
 
 template <typename CntT, typename PosT = uint_fast32_t>
@@ -171,6 +85,7 @@ class PlaybackHandler {
                            DeviceConfigList info_list = vgmtk::lib_devices)
       : backend_(backend_player),
         n_frames_(0),
+        frame_position_(0),
         gain_(1.0),
         surround_(false),
         sample_rate_(std::clamp<long>(aud_get_int(VGM_CFGID, cfg::kSampleRate), 0, UINT32_MAX)),
@@ -194,7 +109,6 @@ class PlaybackHandler {
     total_frames_ = calc_total_frames();
     fade_frames_ = calc_fade_frames();
     gap_frames_ = calc_gap_frames();
-    frame_position_ = 0;
   }
 
   ~PlaybackHandler() { playback_status_.set_device_info(std::vector<PLR_DEV_INFO>()); }
@@ -210,7 +124,7 @@ class PlaybackHandler {
     n_frames_ = n_frames;
 
     if (frame_position_ < total_frames_) {
-      uint_fast32_t remaining_frames = total_frames_ - frame_position_;
+      const uint_fast32_t remaining_frames = total_frames_ - frame_position_;
       n_frames = std::min<int>(render_buffer_.size(), remaining_frames);
 
       std::memset(render_buffer_.data(), 0, render_buffer_.size() * sizeof render_buffer_[0]);

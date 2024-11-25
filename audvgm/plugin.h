@@ -9,39 +9,38 @@
 
 namespace vgmtk {
 
-static void ui_realtime_config_update();
-
-class Plugin : public InputPlugin {
+class Plugin final : public InputPlugin {
  public:
   static const char about[];
   static const char *const exts[];
   static const char *const defaults[];
   static const PluginPreferences prefs;
 
-  static constexpr PluginInfo info = {N_("libvgm VGM Music Decoder"), "audacious-vgm",
-                                      about, &prefs};
+  static constexpr PluginInfo info = {.name = N_("libvgm VGM Music Decoder"),
+                                      .domain = "audacious-vgm",
+                                      .about = about,
+                                      .prefs = &prefs,
+                                      .flags = 0};
 
-  constexpr Plugin()
-      : InputPlugin(info, InputInfo().with_priority(1).with_exts(exts)) {}
+  constexpr Plugin() : InputPlugin(info, InputInfo().with_priority(1).with_exts(exts)) {}
 
   bool init() override;
   void cleanup() override;
 
   bool is_our_file(const char *filename, VFSFile &file) override;
 
-  bool read_tag(const char *filename, VFSFile &file, Tuple &tuple,
-                Index<char> *image) override;
+  bool read_tag(const char *filename, VFSFile &file, Tuple &tuple, Index<char> *image) override;
   bool play(const char *filename, VFSFile &file) override;
 
   PlaybackStatus &playback_status() const { return *playback_status_; }
   SettingsManager &settings_manager() const { return *settings_container_; }
-  static SettingsManager *settings_hack;
+  static SettingsManager *global_settings;
 
  private:
   PlaybackStatus *playback_status_ = nullptr;
   SettingsManager *settings_container_ = nullptr;
 };
 
-}
+}  // namespace vgmtk
 
 #endif  // AUDACIOUS_VGM_PLUGIN_H

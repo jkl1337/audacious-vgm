@@ -15,7 +15,7 @@ PlayerSettings PlayerSettings::init_lib_defaults() {
   PlayerSettings settings;
   const VGMPlayer player;
 
-  settings.devices.resize(vgmtk::lib_devices.len);
+  settings.devices.resize(vgmtk::lib_devices.size());
 
   for (const auto [dev, dev_meta] : settings.devices_with_meta()) {
 
