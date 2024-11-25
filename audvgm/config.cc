@@ -1,7 +1,7 @@
 #include "config.h"
 
-#include <corelib/libvgm-dev-meta.h>
-#include <corelib/libvgm-iface.h>
+#include <corelib/device-config.h>
+#include <corelib/player-settings.h>
 #include <corelib/tagging.h>
 #include <libaudcore/runtime.h>
 
@@ -24,10 +24,10 @@ static std::string dev_name_to_key(const char* label) {
 
 static std::string make_all_devices_list() {
   std::string value;
-  value.reserve(vgmtk::lib_devices.size() * 9);
+  value.reserve(lib_devices.size() * 9);
 
   const char* sep = "";
-  for (const auto& d : vgmtk::lib_devices) {
+  for (const auto& d : lib_devices) {
     value += sep;
     value += dev_name_to_key(d.label);
     sep = ",";
@@ -54,7 +54,7 @@ void vgmtk::set_defaults() {
   VGMPlayer player;
   auto settings = PlayerSettings::init_lib_defaults();
 
-  for (const auto [dev, dev_meta] : settings.devices_with_meta()) {
+  for (const auto [dev, dev_info] : settings.devices_with_meta()) {
     std::string opt_val, pan_val;
     const char* values[] = {"disable", "0",     "mute_0", "0",     "mute_1", "0",
                             "solo_0",  "0",     "solo_1", "0",     nullptr,  nullptr,
@@ -62,25 +62,25 @@ void vgmtk::set_defaults() {
     const char** endp = values;
     while (*endp) endp++;
 
-    if (dev_meta.num_cores() > 1) {
+    if (dev_info.num_cores() > 1) {
       *endp++ = "core";
       *endp++ = "0";
     }
 
-    if (dev_meta.has_options()) {
+    if (dev_info.has_options()) {
       opt_val = n2hexstr(dev.core_opts);
       *endp++ = "opts";
       *endp++ = opt_val.c_str();
     }
 
-    if (dev_meta.has_panning()) {
+    if (dev_info.has_panning()) {
       pan_val = make_zeros_list(dev.chips[0].panning.size());
       *endp++ = "pan";
       *endp = pan_val.c_str();
     }
 
     std::string section("vgm.");
-    section.append(dev_name_to_key(dev_meta.label));
+    section.append(dev_name_to_key(dev_info.label));
     aud_config_set_defaults(section.c_str(), values);
   }
 

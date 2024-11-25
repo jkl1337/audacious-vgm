@@ -1,8 +1,8 @@
 #ifndef AUDACIOUS_VGM_CONFIG_H
 #define AUDACIOUS_VGM_CONFIG_H
 
-#include <corelib/libvgm-iface.h>
-#include <corelib/libvgm-rt.h>
+#include <corelib/player-settings.h>
+#include <corelib/settings-manager.h>
 
 namespace vgmtk {
 

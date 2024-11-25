@@ -4,7 +4,7 @@
 
 #include <QtCore/QAbstractItemModel>
 
-#include "../corelib/libvgm-rt.h"
+#include "../corelib/settings-manager.h"
 
 using namespace vgmqt;
 
@@ -115,7 +115,7 @@ int tree_child_count(const vgmtk::DeviceConfigList& info_list, const NodeLocator
     case NodeLocator::NodeLevel::root:
       return info_list.size();
     case NodeLocator::NodeLevel::device:
-      return vgmtk::kNumInstances;
+      return vgmtk::num_instances;
     case NodeLocator::NodeLevel::instance:
       return c.has_linked() ? 1 : 0;
     default:

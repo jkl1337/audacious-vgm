@@ -10,7 +10,7 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "libvgm-iface.h"
+#include "player-settings.h"
 #include "types.h"
 
 namespace vgmtk {

@@ -7,14 +7,14 @@
 #include <mutex>
 #include <vector>
 
-#include "libvgm-dev-meta.h"
+#include "device-config.h"
 #include "types.h"
 
 namespace vgmtk {
 
 struct PlayerSettings {
-  typedef std::bitset<kMaxLinked> DisableMask;
-  typedef std::bitset<kMaxAllChannels> ChannelMask;
+  typedef std::bitset<max_linked> DisableMask;
+  typedef std::bitset<max_all_channels> ChannelMask;
 
   struct Chip {
     DisableMask disable = 0;
@@ -26,7 +26,7 @@ struct PlayerSettings {
   struct Device {
     uint32_t core = 0;
     uint32_t core_opts = 0;
-    std::array<Chip, kNumInstances> chips;
+    std::array<Chip, num_instances> chips;
   };
 
   std::vector<Device> devices;

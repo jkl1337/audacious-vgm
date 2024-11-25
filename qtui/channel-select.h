@@ -3,7 +3,7 @@
 
 #include <QtCore/QAbstractItemModel>
 
-#include "../corelib/libvgm-dev-meta.h"
+#include "../corelib/device-config.h"
 #include "../corelib/types.h"
 
 namespace vgmtk {

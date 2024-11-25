@@ -1,6 +1,6 @@
 #include "core-selector.h"
 
-#include <corelib/libvgm-dev-meta.h>
+#include <corelib/device-config.h>
 
 #include <QtWidgets/QVBoxLayout>
 

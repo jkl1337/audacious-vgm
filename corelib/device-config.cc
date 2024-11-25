@@ -1,5 +1,3 @@
-#include "libvgm-dev-meta.h"
-
 #include <libvgm/emu/EmuCores.h>
 #include <libvgm/emu/SoundDevs.h>
 #include <libvgm/emu/cores/2612intf.h>
@@ -11,6 +9,8 @@
 #include <libvgm/emu/cores/scsp.h>
 
 #include <libvgm/player/playerbase.hpp>
+
+#include "device-config.h"
 
 using namespace vgmtk;
 
@@ -128,7 +128,7 @@ constexpr OptionSpec ga20_opts[]{
 constexpr int index_AY8910 = 17;
 constexpr int index_YMF262 = 12;
 
-constexpr DeviceConfig lib_devices_p[kNumDevices]{
+constexpr DeviceConfig lib_devices_p[42]{
     {.devid = DEVID_SN76496, .label = "SN76496", .channels = sn76489_cg, .cores = sn76489_cs},
     {.devid = DEVID_YM2413, .label = "YM2413", .channels = ym2413_cg, .cores = ym2413_cs},
     {.devid = DEVID_YM2612,
@@ -227,8 +227,6 @@ static_assert(lib_devices_p[index_AY8910].devid == DEVID_AY8910, "index_AY8910 i
 const std::size_t vgmtk::num_devices = std::size(lib_devices_p);
 const DeviceConfigList vgmtk::lib_devices(lib_devices_p, num_devices);
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "hicpp-signed-bitwise"
 
 const char* vgmtk::core_name(uint32_t core_id) {
   switch (core_id) {
@@ -347,5 +345,3 @@ const char* vgmtk::accurate_chip_name(const PLR_DEV_INFO& info) {
   }
   return "";
 }
-
-#pragma clang diagnostic pop

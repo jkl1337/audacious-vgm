@@ -1,4 +1,4 @@
-#include <corelib/libvgm-rt.h>
+#include <corelib/settings-manager.h>
 #include <libaudcore/hook.h>
 
 using namespace vgmtk;

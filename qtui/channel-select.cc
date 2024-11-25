@@ -1,7 +1,7 @@
 
 #include "channel-select.h"
 
-#include "../corelib/libvgm-rt.h"
+#include "../corelib/settings-manager.h"
 
 using namespace vgmqt;
 
@@ -195,18 +195,21 @@ QString channel_name(const vgmtk::DeviceConfig &dev_cfg, int idx) {
   static const QString kLabelGroupedChannelNum(ChannelTreeModel::tr("%1 Channel %2"));
   static const QString kLabelGroupedChannelName(ChannelTreeModel::tr("%1 %2"));
 
-  const char *link_group = nullptr;
+  std::string_view link_group;
   for (const auto *d = &dev_cfg; d;) {
     for (const auto &cs : d->channels) {
       // FIXME: This isn't quite right
-      const char *group = link_group ? link_group : cs.name();
+      const auto group = link_group.size() ? link_group : cs.name();
       if (idx < cs.serial) {
-        return group ? kLabelGroupedChannelNum.arg(group).arg(idx + 1)
-                     : kLabelChannelNum.arg(idx + 1);
-      } else if (idx < cs.serial + cs.named.size()) {
+        return group.size()
+                   ? kLabelGroupedChannelNum.arg(QString::fromUtf8(group.data(), group.size()))
+                         .arg(idx + 1)
+                   : kLabelChannelNum.arg(idx + 1);
+      } else if (idx < cs.serial + static_cast<int>(cs.named.size())) {
         idx -= cs.serial;
-        return group ? kLabelGroupedChannelName.arg(group, cs.named[idx])
-                     : ChannelTreeModel::tr(cs.named[idx]);
+        return group.size() ? kLabelGroupedChannelName.arg(
+                                  QString::fromUtf8(group.data(), group.size()), cs.named[idx])
+                            : ChannelTreeModel::tr(cs.named[idx]);
       }
       idx -= cs.serial + cs.named.size();
     }

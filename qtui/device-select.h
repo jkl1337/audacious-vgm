@@ -1,9 +1,9 @@
 #ifndef AUDACIOUS_VGM_DEVICE_SELECT_H
 #define AUDACIOUS_VGM_DEVICE_SELECT_H
 
-#include <QtCore/QSortFilterProxyModel>
+#include <corelib/device-config.h>
 
-#include <corelib/libvgm-dev-meta.h>
+#include <QtCore/QSortFilterProxyModel>
 
 namespace vgmtk {
 class SettingsManager;

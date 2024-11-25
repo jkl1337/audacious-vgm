@@ -1,7 +1,7 @@
 #ifndef VGMTK_QVGM_PLAYER_H
 #define VGMTK_QVGM_PLAYER_H
 
-#include <corelib/libvgm-iface.h>
+#include <corelib/player-settings.h>
 
 #include <QtWidgets/QWidget>
 

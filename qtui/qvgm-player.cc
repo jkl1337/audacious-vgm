@@ -1,6 +1,6 @@
 #include "qvgm-player.h"
 
-#include <corelib/libvgm-rt.h>
+#include <corelib/settings-manager.h>
 
 #include <QHBoxLayout>
 #include <QHeaderView>

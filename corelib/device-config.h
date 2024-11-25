@@ -5,28 +5,26 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-
-#pragma clang diagnostic push
+#include <string_view>
 
 struct PLR_DEV_INFO;
 
 namespace vgmtk {
 
-constexpr int kNumDevices = 42;
-constexpr int kNumInstances = 2;
-constexpr int kMaxLinked = 2;
-constexpr int kMaxChannels = 32;
-constexpr int kMaxAllChannels = 64;
+constexpr int num_instances = 2;
+constexpr int max_linked = 2;
+constexpr int max_channels = 32;
+constexpr int max_all_channels = 64;
 
 constexpr uint_least32_t core_invalid = std::numeric_limits<uint_least32_t>::max();
 
 struct ChannelGroup {
   int serial = 0;
   std::span<const char *const> named;
-  char group[8] = {};
+  std::array<char, 8> group;
 
   constexpr bool valid() const { return serial || named.size(); }
-  constexpr const char *name() const { return group[0] ? group : nullptr; }
+  constexpr std::string_view name() const { return group[0] ? group.data() : std::string_view(); }
 };
 
 struct OnOffOption {

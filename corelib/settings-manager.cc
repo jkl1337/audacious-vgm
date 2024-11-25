@@ -1,4 +1,4 @@
-#include "libvgm-rt.h"
+#include "settings-manager.h"
 
 using namespace vgmtk;
 
@@ -68,7 +68,7 @@ bool SettingsManager::WriteContext::store_to_device(int dev_idx, Func &&f) {
 template <typename Func>
 bool SettingsManager::WriteContext::store_to_instance(int dev_idx, int instance, Func &&f) {
   if (dev_idx < 0 || dev_idx >= backend_.devices.size() || instance < 0 ||
-      instance >= vgmtk::kNumInstances) {
+      instance >= num_instances) {
     return false;
   }
   return f(backend_.devices[dev_idx].chips[instance]);

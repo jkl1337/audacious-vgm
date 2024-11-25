@@ -2,12 +2,12 @@
 // Created by luebsj on 4/11/20.
 //
 
-#include "libvgm-iface.h"
+#include "player-settings.h"
 
 #include <libvgm/player/playerbase.hpp>
 #include <libvgm/player/vgmplayer.hpp>
 
-#include "libvgm-dev-meta.h"
+#include "device-config.h"
 
 using namespace vgmtk;
 
