@@ -107,26 +107,26 @@ DeviceControlPanel::DeviceControlPanel(PlaybackStatus &playback_status,
   chan_view->setItemDelegateForColumn(3, new SliderDelegate(chan_view));
 
   layout->addWidget(chan_view, 1);
+  chan_view->setMinimumWidth(300);
 
   auto *chan_model = new ChannelTreeModel(settings_manager, &playback_status, chan_view);
   chan_view->setModel(chan_model);
 
   // NOLINTNEXTLINE(*-unused-return-value)
-  connect(chan_model, &QAbstractItemModel::modelReset, chan_view,
-                   [chan_model, chan_view]() {
-                     int rc = chan_model->rowCount(QModelIndex());
+  connect(chan_model, &QAbstractItemModel::modelReset, chan_view, [chan_model, chan_view]() {
+    int rc = chan_model->rowCount(QModelIndex());
 
-                     for (int r = 0; r < rc; ++r) {
-                       auto p = chan_model->index(r, 0, QModelIndex());
-                       auto c = chan_model->index(0, 3, p);
+    for (int r = 0; r < rc; ++r) {
+      auto p = chan_model->index(r, 0, QModelIndex());
+      auto c = chan_model->index(0, 3, p);
 
-                       if (!(chan_model->flags(c) & Qt::ItemIsEditable)) continue;
+      if (!(chan_model->flags(c) & Qt::ItemIsEditable)) continue;
 
-                       for (int i = 0; c.isValid(); c = chan_model->index(++i, 3, p)) {
-                         chan_view->openPersistentEditor(c);
-                       }
-                     }
-                   });
+      for (int i = 0; c.isValid(); c = chan_model->index(++i, 3, p)) {
+        chan_view->openPersistentEditor(c);
+      }
+    }
+  });
   chan_view->header()->setStretchLastSection(false);
   chan_view->header()->setSectionResizeMode(0, QHeaderView::Stretch);
   chan_view->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
