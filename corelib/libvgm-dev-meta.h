@@ -22,7 +22,7 @@ constexpr uint_least32_t core_invalid = std::numeric_limits<uint_least32_t>::max
 
 struct ChannelGroup {
   int serial = 0;
-  std::span<const char * const> named;
+  std::span<const char *const> named;
   char group[8] = {};
 
   constexpr bool valid() const { return serial || named.size(); }

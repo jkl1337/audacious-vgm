@@ -6,7 +6,7 @@ void SettingsManager::ReadContext::load_mute_opts(const std::vector<InstanceId> 
                                                   std::vector<PLR_MUTE_OPTS> &opts) const {
   auto output = opts.begin();
 
-  bool solo = std::any_of(devs.begin(), devs.end(), [this](const InstanceId &i){
+  bool solo = std::any_of(devs.begin(), devs.end(), [this](const InstanceId &i) {
     return settings_.chip(i).channel_solo.any();
   });
   for (const auto &i : devs) {
@@ -36,7 +36,6 @@ void SettingsManager::ReadContext::load_mute_opts(const std::vector<InstanceId> 
 
 void SettingsManager::ReadContext::load_dev_opts(const std::vector<InstanceId> &devs,
                                                  std::vector<PLR_DEV_OPTS> &opts) {
-
   auto output = opts.begin();
   for (const auto &i : devs) {
     const auto &dev_info = vgmtk::lib_devices[i.dev_idx];
@@ -68,8 +67,8 @@ bool SettingsManager::WriteContext::store_to_device(int dev_idx, Func &&f) {
 
 template <typename Func>
 bool SettingsManager::WriteContext::store_to_instance(int dev_idx, int instance, Func &&f) {
-  if (dev_idx < 0 || dev_idx >= backend_.devices.size() || instance < 0
-      || instance >= vgmtk::kNumInstances) {
+  if (dev_idx < 0 || dev_idx >= backend_.devices.size() || instance < 0 ||
+      instance >= vgmtk::kNumInstances) {
     return false;
   }
   return f(backend_.devices[dev_idx].chips[instance]);
@@ -129,9 +128,7 @@ bool SettingsManager::WriteContext::set_disable(int dev_idx, bool level,
 }
 
 bool SettingsManager::WriteContext::set_core(int dev_idx, uint32_t core) {
-  return store_to_device(dev_idx, [this, core](auto &d) {
-    return write_value(d.core, core);
-  });
+  return store_to_device(dev_idx, [this, core](auto &d) { return write_value(d.core, core); });
 }
 
 bool SettingsManager::WriteContext::set_core_opts(int dev_idx, uint32_t mask, uint32_t level) {

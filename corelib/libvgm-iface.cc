@@ -18,7 +18,6 @@ PlayerSettings PlayerSettings::init_lib_defaults() {
   settings.devices.resize(vgmtk::lib_devices.size());
 
   for (const auto [dev, dev_meta] : settings.devices_with_meta()) {
-
     if (dev_meta.has_options()) {
       PLR_DEV_OPTS opts{};
       if (!player.GetDeviceOptions(PLR_DEV_ID(dev_meta.devid, 0), opts)) {

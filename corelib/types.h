@@ -13,6 +13,6 @@ struct InstanceId {
   }
 };
 
-}  // namespace vgm
+}  // namespace vgmtk
 
 #endif  // VGMTK_TYPES_H_
