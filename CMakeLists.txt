@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
+set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 project(vgmtk)
 
@@ -15,6 +16,12 @@ set(USE_SANITIZERS ON CACHE BOOL "")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported)
+if (ipo_supported)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif ()
 
 set(LIBRARY_TYPE OBJECT)
 add_subdirectory(libvgm EXCLUDE_FROM_ALL)
