@@ -1,5 +1,7 @@
-#include <corelib/settings-manager.h>
 #include <libaudcore/hook.h>
+
+#include "corelib/playback-status.h"
+#include "corelib/settings-manager.h"
 
 using namespace vgmtk;
 
@@ -22,13 +24,13 @@ std::vector<PLR_DEV_INFO> PlaybackStatus::get_device_info() const {
   return dev_info_list_;
 }
 
-void PlaybackStatus::subscribe(PlaybackStatus::NotifyFunc func, void *ctx) {
+void PlaybackStatus::subscribe(NotifyFunc func, void *ctx) {
   std::lock_guard lock(hook_lock_);
   if (hooks_.empty()) hook_associate(kUpdateEvent, hook_cb, this);
   hooks_.push_back(HookInfo{func, ctx});
 }
 
-void PlaybackStatus::unsubscribe(PlaybackStatus::NotifyFunc func, void *ctx) {
+void PlaybackStatus::unsubscribe(NotifyFunc func, void *ctx) {
   std::lock_guard lock(hook_lock_);
   hooks_.erase(std::remove_if(hooks_.begin(), hooks_.end(),
                               [=](const HookInfo &info) {

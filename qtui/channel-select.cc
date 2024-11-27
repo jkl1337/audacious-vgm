@@ -1,6 +1,7 @@
 
 #include "channel-select.h"
 
+#include "../corelib/playback-status.h"
 #include "../corelib/settings-manager.h"
 
 using namespace vgmqt;

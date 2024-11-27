@@ -49,10 +49,8 @@ static std::string make_zeros_list(size_t n) {
 }
 
 void vgmtk::set_defaults() {
-  std::vector<const char*> vec;
-
   VGMPlayer player;
-  auto settings = PlayerSettings::init_lib_defaults();
+  const auto settings = PlayerSettings::init_lib_defaults();
 
   for (const auto [dev, dev_info] : settings.devices_with_meta()) {
     std::string opt_val, pan_val;

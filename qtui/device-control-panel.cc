@@ -4,12 +4,14 @@
 #include <QHeaderView>
 #include <QMouseEvent>
 #include <QShortcut>
+#include <QStackedLayout>
 #include <QStyledItemDelegate>
 #include <QTreeView>
 
 #include "channel-select.h"
 #include "core-selector.h"
 #include "corelib/settings-manager.h"
+#include "device-flags-widget.h"
 #include "device-select.h"
 #include "qvgm-factory.h"
 
@@ -81,30 +83,30 @@ class SliderDelegate : public QStyledItemDelegate {
 namespace vgmqt {
 
 class DeviceControlPanelPrivate {
-  Q_DISABLE_COPY(DeviceControlPanelPrivate);
-  Q_DECLARE_PUBLIC(DeviceControlPanel);
+  Q_DISABLE_COPY(DeviceControlPanelPrivate)
+  Q_DECLARE_PUBLIC(DeviceControlPanel)
   DeviceControlPanel *const q_ptr;
 
-  QHBoxLayout layout;
+  QVBoxLayout top;
+  QHBoxLayout hbox;
   QTreeView device_tree;
   DeviceTreeModel device_tree_model;
   QTreeView channel_tree;
   ChannelTreeModel channel_tree_model;
-  CoresWidget cores_widget;
 
  public:
-  DeviceControlPanelPrivate(DeviceControlPanel *q, vgmtk::PlaybackStatus &playback_status,
-                            vgmtk::SettingsManager &settings_manager);
+  DeviceControlPanelPrivate(DeviceControlPanel *q, PlaybackStatus &playback_status,
+                            SettingsManager &settings_manager);
 };
 
 DeviceControlPanelPrivate::DeviceControlPanelPrivate(DeviceControlPanel *q,
-                                                     vgmtk::PlaybackStatus &playback_status,
-                                                     vgmtk::SettingsManager &settings_manager)
+                                                     PlaybackStatus &playback_status,
+                                                     SettingsManager &settings_manager)
     : q_ptr(q),
-      layout(q),
+      top(q),
       device_tree_model(settings_manager, playback_status, &device_tree),
       channel_tree_model(settings_manager, &playback_status, &channel_tree) {
-  layout.addWidget(&device_tree, 0);
+  top.addLayout(&hbox), hbox.addWidget(&device_tree, 0);
   device_tree.setItemDelegate(new DeviceListViewItemDelegate(&device_tree));
 
   // auto *filter_model = new vgmqt::DeviceTreeFiltered(model);
@@ -122,7 +124,7 @@ DeviceControlPanelPrivate::DeviceControlPanelPrivate(DeviceControlPanel *q,
 
   channel_tree.setItemDelegateForColumn(3, new SliderDelegate(&channel_tree));
 
-  layout.addWidget(&channel_tree, 1);
+  hbox.addWidget(&channel_tree, 1);
   channel_tree.setMinimumWidth(300);
   channel_tree.setModel(&channel_tree_model);
 
@@ -146,9 +148,26 @@ DeviceControlPanelPrivate::DeviceControlPanelPrivate(DeviceControlPanel *q,
   channel_tree.header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
   channel_tree.header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
 
-  cores_widget.setDevice(lib_devices[35], 1);
-  layout.addWidget(&cores_widget);
+  QStackedLayout *stack = new QStackedLayout(&top);
+  for (int i = 0; auto [dev, meta] : settings_manager.current().devices_with_meta()) {
+    auto *df = new DeviceFlagsWidget(i, dev.core_opts, dev.core, q);
+    stack->addWidget(df);
+    df->connect(df, &DeviceFlagsWidget::core_edited, q, [&settings_manager, i](uint32_t core) {
+      settings_manager.writer().set_core(i, core);
+    });
+    df->connect(df, &DeviceFlagsWidget::flags_edited, q, [&settings_manager, i](uint32_t flags) {
+      printf("flags_edited: %08X\n", flags);
+      settings_manager.writer().set_core_opts(i, UINT32_MAX, flags);
+    });
+    ++i;
+  }
 
+  QObject::connect(device_tree.selectionModel(), &QItemSelectionModel::currentChanged, q,
+                   [this, stack](const QModelIndex &current, const QModelIndex &) {
+                     auto dev_idx =
+                         static_cast<DeviceTreeModel *>(device_tree.model())->dev_idx(current);
+                     stack->setCurrentIndex(dev_idx);
+                   });
   // auto *shortcut = new QShortcut(QKeySequence("Alt+1"), this);
 }
 

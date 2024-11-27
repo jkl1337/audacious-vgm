@@ -19,6 +19,9 @@ constexpr int max_all_channels = 64;
 
 constexpr uint_least32_t core_invalid = std::numeric_limits<uint_least32_t>::max();
 
+const char *accurate_chip_name(const PLR_DEV_INFO &);
+const char *core_name(uint32_t core_id);
+
 struct ChannelGroup {
   int serial = 0;
   std::span<const char *const> named;
@@ -69,6 +72,7 @@ struct CoreSpec {
   bool panning = false;
 
   constexpr bool valid() const { return core != core_invalid; }
+  constexpr std::string_view name() const { return label[0] ? label : core_name(core); }
 };
 
 class DeviceConfig;
@@ -79,9 +83,6 @@ struct LinkSpec {
 
   constexpr bool valid() const { return dev != nullptr; }
 };
-
-const char *accurate_chip_name(const PLR_DEV_INFO &);
-const char *core_name(uint32_t core_id);
 
 class DeviceConfigList;
 extern const std::size_t num_devices;
@@ -140,14 +141,19 @@ class DeviceConfigList : public std::span<const DeviceConfig> {
   constexpr DeviceConfigList(const DeviceConfig *data, int len)
       : std::span<const DeviceConfig>(data, len) {}
 
-  const DeviceConfig *find(unsigned int devid) const {
+  constexpr const DeviceConfig &get(size_t idx) const {
+    if (idx > size()) throw std::out_of_range("DeviceConfigList::get");
+    return (*this)[idx];
+  }
+
+  const DeviceConfig *find(uint32_t devid) const {
     for (auto it = begin(); it != end(); ++it) {
       if (it->devid == devid) return &*it;
     }
     return nullptr;
   }
 
-  int find_index(unsigned int devid) const {
+  int find_index(uint32_t devid) const {
     const auto *d = find(devid);
     return d ? d - &*begin() : -1;
   }
@@ -160,8 +166,8 @@ class DeviceInfoZipIterator {
 
  public:
   struct Value {
-    std::iter_value_t<ForwardIterator> &dev;  // NOLINT
-    const DeviceConfig &meta;                 // NOLINT
+    std::iter_reference_t<ForwardIterator> dev;  // NOLINT
+    const DeviceConfig &meta;                    // NOLINT
   };
 
   using iterator_category = std::forward_iterator_tag;

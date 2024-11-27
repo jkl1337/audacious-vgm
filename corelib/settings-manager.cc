@@ -10,7 +10,7 @@ void SettingsManager::ReadContext::load_mute_opts(const std::vector<InstanceId> 
     return settings_.chip(i).channel_solo.any();
   });
   for (const auto &i : devs) {
-    const auto &dev_info = vgmtk::lib_devices[i.dev_idx];
+    const auto &dev_info = lib_devices[i.dev_idx];
     const auto &ccb = settings_.chip(i);
 
     output->disable = ccb.disable.to_ulong();
@@ -35,10 +35,9 @@ void SettingsManager::ReadContext::load_mute_opts(const std::vector<InstanceId> 
 }
 
 void SettingsManager::ReadContext::load_dev_opts(const std::vector<InstanceId> &devs,
-                                                 std::vector<PLR_DEV_OPTS> &opts) {
+                                                 std::vector<PLR_DEV_OPTS> &opts) const {
   auto output = opts.begin();
   for (const auto &i : devs) {
-    const auto &dev_info = vgmtk::lib_devices[i.dev_idx];
     const auto &dcb = settings_.device(i);
 
     output->emuCore[0] = dcb.core;
@@ -88,7 +87,6 @@ bool SettingsManager::WriteContext::store_in_range(T &dest, const T &src, const 
 
 bool SettingsManager::WriteContext::set_mute(int dev_idx, int instance, bool level,
                                              PlayerSettings::ChannelMask mask) {
-  // FIXME: thinking maybe this should only mess with the "valid" bits
   return store_to_instance(dev_idx, instance, [level, this, mask](PlayerSettings::Chip &c) {
     PlayerSettings::ChannelMask apply;
     if (level) apply = apply.set();

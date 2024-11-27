@@ -8,7 +8,7 @@
 namespace vgmtk {
 class SettingsManager;
 class PlaybackStatus;
-}
+}  // namespace vgmtk
 
 namespace vgmqt {
 
@@ -16,7 +16,7 @@ struct PlayingDevice {
   int dev_idx;
   int instance;
   uint32_t core;
-  const char *accurate_name;
+  const char* accurate_name;
 };
 
 class DeviceTreeModel : public QAbstractItemModel {
@@ -24,8 +24,7 @@ class DeviceTreeModel : public QAbstractItemModel {
   enum ItemDataRole { PlayingDeviceRole = Qt::UserRole };
 
   explicit DeviceTreeModel(vgmtk::SettingsManager& settings_manager,
-                           vgmtk::PlaybackStatus& playback_status,
-                           QObject* parent = nullptr,
+                           vgmtk::PlaybackStatus& playback_status, QObject* parent = nullptr,
                            const vgmtk::DeviceConfigList& info_list = vgmtk::lib_devices);
   QModelIndex index(int row, int column, const QModelIndex& parent) const override;
   QModelIndex parent(const QModelIndex& index) const override;
@@ -36,9 +35,11 @@ class DeviceTreeModel : public QAbstractItemModel {
   Qt::ItemFlags flags(const QModelIndex& index) const override;
   QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
+  static int dev_idx(const QModelIndex& index);
+
  private:
   vgmtk::SettingsManager& settings_manager_;
-  const vgmtk::DeviceConfigList &info_list_;
+  const vgmtk::DeviceConfigList& info_list_;
 
   void data_changed_helper(const QModelIndex& p, const QVector<int>& roles);
 
@@ -52,11 +53,11 @@ class DeviceTreeFiltered : public QSortFilterProxyModel {
 
  public:
   explicit DeviceTreeFiltered(QObject* parent = nullptr) : QSortFilterProxyModel(parent) {
-    //setFilterRole(DeviceTreeModel::PlayingDeviceRole);
+    // setFilterRole(DeviceTreeModel::PlayingDeviceRole);
     setDynamicSortFilter(true);
   }
 };
 
-}
+}  // namespace vgmqt
 
 #endif  // AUDACIOUS_VGM_DEVICE_SELECT_H

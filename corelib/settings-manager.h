@@ -66,7 +66,7 @@ class SettingsManager {
    public:
     const PlayerSettings *operator->() const { return &settings_; }
 
-    void load_dev_opts(const std::vector<InstanceId> &devs, std::vector<PLR_DEV_OPTS> &opts);
+    void load_dev_opts(const std::vector<InstanceId> &devs, std::vector<PLR_DEV_OPTS> &opts) const;
 
     void load_mute_opts(const std::vector<InstanceId> &devs,
                         std::vector<PLR_MUTE_OPTS> &opts) const;
@@ -88,7 +88,7 @@ class SettingsManager {
   using OptReadContext = std::optional<ReadContext>;
 
   WriteContext writer() { return {current_, notify_, mutex_}; }
-  OptReadContext read() const {
+  OptReadContext try_read() const {
     if (!notify_.load(std::memory_order_acquire)) return {};
 
     std::shared_lock lock(mutex_, std::try_to_lock);
@@ -96,7 +96,7 @@ class SettingsManager {
     notify_.store(false, std::memory_order_relaxed);
     return OptReadContext(std::in_place, current_, std::move(lock));
   }
-  ReadContext read_always() const {
+  ReadContext read() const {
     std::shared_lock lock(mutex_);
     notify_.store(false, std::memory_order_relaxed);
     return {current_, std::move(lock)};

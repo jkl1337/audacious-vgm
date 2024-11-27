@@ -16,6 +16,7 @@
     <inspection_tool class="Clazy" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="clazyChecks" value="level0,no-lambda-in-connect" />
     </inspection_tool>
+    <inspection_tool class="CppDFAUnreachableFunctionCall" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="CppParameterMayBeConst" enabled="false" level="HINT" enabled_by_default="false" />
     <inspection_tool class="OCUnusedGlobalDeclaration" enabled="false" level="WARNING" enabled_by_default="false" />
   </profile>

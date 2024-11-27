@@ -1,58 +1,78 @@
 #include "core-selector.h"
 
-#include <corelib/device-config.h>
+#include <QtWidgets/QLayout>
 
-#include <QtWidgets/QVBoxLayout>
+#include "corelib/settings-manager.h"
 
-using namespace vgmqt;
+namespace vgmqt {
 using namespace vgmtk;
 
-CoresWidget::CoresWidget(QWidget *parent) : QWidget(parent) {
-  auto *vbox = new QVBoxLayout(this);
+class CoreSelectorPrivate {
+ public:
+  CoreSelectorPrivate(CoreSelector *q, int dev_idx, const DeviceConfigList &info_list);
 
-  int idx = 0;
-  for (auto &button : buttons_) {
-    button = new QRadioButton();
-    vbox->addWidget(button);
-    button->setVisible(false);
+  Q_DISABLE_COPY(CoreSelectorPrivate)
+  Q_DECLARE_PUBLIC(CoreSelector)
 
-    auto toggle_handler = [idx, this](bool checked) {
-      if (!checked) return;
-      core_ = cores_[idx];
-      coreChanged(core_);
-    };
-    connect(button, &QAbstractButton::toggled, this, toggle_handler);
-    ++idx;
-  }
+ private:
+  CoreSelector *const q_ptr;
+  QHBoxLayout layout;
+  QButtonGroup group;
+  QRadioButton default_button;
+  QVarLengthArray<uint32_t, 8> id_to_core;
+};
 
-  auto fm = buttons_[0]->fontMetrics();
-  int max_label_width = 0;
+CoreSelector::CoreSelector(int dev_idx, uint32_t core, QWidget *parent,
+                           const DeviceConfigList &info_list)
+    : QWidget(parent),
+      core_(core),
+      d_ptr(std::make_unique<CoreSelectorPrivate>(this, dev_idx, info_list)) {}
 
-  for (const auto &d : vgmtk::lib_devices) {
-    for (const auto &c : d.cores) {
-      if (!c.label[0]) continue;
-      int width = fm.horizontalAdvance(c.label);
-      if (width > max_label_width) max_label_width = width;
-    }
-  }
-  setMinimumWidth(buttons_[0]->minimumSizeHint().width() + max_label_width);
-  vbox->addStretch(1);
+CoreSelector::~CoreSelector() = default;
+
+void CoreSelector::set_selected_core(uint32_t core) {
+  Q_D(CoreSelector);
+  if (core_ == core) return;
+  auto i = d->id_to_core.indexOf(core);
+  if (i == -1) return;
+  core_ = core;
+  d->group.button(i)->setChecked(true);
+  emit core_changed(core);
 }
 
-void CoresWidget::setDevice(const vgmtk::DeviceConfig &config, size_t select) {
-  size_t i{};
-  for (const auto &c : config.cores) {
-    auto *const button = buttons_[i];
-    button->setText(c.label[0] ? c.label : core_name(c.core));
-    button->setVisible(true);
-    cores_[i] = c.core;
-    if (i == select) {
-      button->setChecked(true);
-    }
-    ++i;
+CoreSelectorPrivate::CoreSelectorPrivate(CoreSelector *q, int dev_idx,
+                                         const DeviceConfigList &info_list)
+    : q_ptr(q), layout(q), group(q), default_button(CoreSelector::tr("Default")), id_to_core(1, 0) {
+  const auto &device = info_list.get(dev_idx);
+  const auto &cores = device.cores;
+
+  group.addButton(&default_button, 0);
+  layout.addWidget(&default_button);
+  layout.setContentsMargins(0, 0, 0, 0);
+
+  for (size_t i = 0; i < cores.size(); ++i) {
+    const auto &core = cores[i];
+    id_to_core.push_back(core.core);
+    auto name = core.name();
+    auto *button = new QRadioButton(QString::fromUtf8(name.data(), name.size()));
+    group.addButton(button, i + 1);
+    layout.addWidget(button);
   }
-  for (; i < buttons_.size(); ++i) {
-    buttons_[i]->setVisible(false);
-    cores_[i] = 0;
+  {
+    auto *b = group.button(id_to_core.indexOf(q->core_));
+    if (b) b->setChecked(true);
   }
+
+  group.connect(&group, &QButtonGroup::idClicked, q, [this](int id) {
+    Q_Q(CoreSelector);
+    const auto new_core = id_to_core[id];
+    if (q->core_ == new_core) return;
+    q->core_ = new_core;
+    emit q->core_edited(new_core);
+    emit q->core_changed(new_core);
+  });
 }
+
+}  // namespace vgmqt
+
+#include "moc_core-selector.cpp"

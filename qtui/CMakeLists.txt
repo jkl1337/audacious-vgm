@@ -30,9 +30,11 @@ add_library(
         core-selector.cc
         core-selector.h
         device-control-panel.h
-        device-control-panel.cc)
+        device-control-panel.cc
+        device-flags-widget.cc
+        device-flags-widget.h)
 target_sources(qtui PRIVATE i18n.h)
 set_property(TARGET qtui PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_compile_options(qtui PRIVATE -Wall -Wextra -Wno-unknown-pragmas)
+target_compile_options(qtui PRIVATE -Wall -Wextra -pedantic -Wno-unknown-pragmas)
 target_include_directories(qtui PUBLIC ${VGMTK_SOURCE_DIR})
 target_link_libraries(qtui PRIVATE corelib-obj Qt::Widgets Qt::Gui)

@@ -17,7 +17,6 @@
 namespace vgmtk {
 
 namespace {
-
 constexpr int kNChannels = 2;
 constexpr int kBufferSizeSamples = 4096;
 constexpr int kRenderBlockSizeSamples = 1024;
@@ -203,7 +202,7 @@ class PlaybackHandler {
   }
 
   void init_settings() {
-    auto settings_ctx = settings_manager_.read_always();
+    auto settings_ctx = settings_manager_.read();
     gain_ = std::clamp(settings_ctx->gain, 0.0, 4.0);
     surround_ = settings_ctx->surround;
   }
@@ -211,31 +210,36 @@ class PlaybackHandler {
   void init_device_options() {
     std::vector<PLR_DEV_OPTS> dev_opts(chips_.size());
 
-    for (int i = 0; i < chips_.size(); ++i) {
+    for (size_t i = 0; i < chips_.size(); ++i) {
       const auto &c = chips_[i];
       backend_.GetDeviceOptions(PLR_DEV_ID(c.vgm_type, c.instance), dev_opts[i]);
     }
 
     {
-      auto settings_ctx = settings_manager_.read_always();
+      auto writer = settings_manager_.writer();
+      for (size_t i = 0; i < chips_.size(); ++i) {
+        const auto &c = chips_[i];
+        if (c.vgm_type == DEVID_YM2612 || c.vgm_type == DEVID_YMF262 ||
+            c.vgm_type == DEVID_YM2413 || c.vgm_type == DEVID_YM3812 ||
+            c.vgm_type == DEVID_YM2151) {
+          writer.set_core(c.dev_idx, FCC_NUKE);
+          if (c.vgm_type == DEVID_YM2612)
+            writer.set_core_opts(c.dev_idx, OPT_YM2612_TYPE_OPN2C_ASIC | OPT_YM2612_TYPE_OPN2C_DISC,
+                                 OPT_YM2612_TYPE_OPN2C_ASIC);
+        } else if (c.vgm_type == DEVID_SN76496) {
+          writer.set_core(c.dev_idx, FCC_MAXM);
+        }
+      }
+    }
+    {
+      auto settings_ctx = settings_manager_.read();
       settings_ctx.load_dev_opts(chips_, dev_opts);
       settings_ctx.load_mute_opts(chips_, mute_opts_);
       // FIXME: initial panning options
     }
-
-    for (int i = 0; i < chips_.size(); ++i) {
+    for (size_t i = 0; i < chips_.size(); ++i) {
       const auto &c = chips_[i];
       dev_opts[i].muteOpts = mute_opts_[i];
-      if (c.vgm_type == DEVID_YM2612 || c.vgm_type == DEVID_YMF262 || c.vgm_type == DEVID_YM2413 ||
-          c.vgm_type == DEVID_YM3812 || c.vgm_type == DEVID_YM2151) {
-        auto &dopt = dev_opts[i];
-        dopt.emuCore[0] = FCC_NUKE;
-        if (c.vgm_type == DEVID_YM2612) dopt.coreOpts |= OPT_YM2612_TYPE_OPN2C_ASIC;
-      } else if (c.vgm_type == DEVID_SN76496) {
-        auto &dopt = dev_opts[i];
-        dopt.emuCore[0] = FCC_MAXM;
-      }
-
       backend_.SetDeviceOptions(PLR_DEV_ID(info_list_[c.dev_idx].devid, c.instance), dev_opts[i]);
     }
   }
@@ -258,7 +262,7 @@ class PlaybackHandler {
 
   void update_settings() {
     {
-      auto settings_ctx = settings_manager_.read();
+      auto settings_ctx = settings_manager_.try_read();
       if (!settings_ctx) return;
       const auto &reader = settings_ctx.value();
       reader.load_mute_opts(chips_, mute_opts_);

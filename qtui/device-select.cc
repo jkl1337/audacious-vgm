@@ -4,7 +4,8 @@
 
 #include <QtCore/QAbstractItemModel>
 
-#include "../corelib/settings-manager.h"
+#include "corelib/playback-status.h"
+#include "corelib/settings-manager.h"
 
 using namespace vgmqt;
 
@@ -155,7 +156,7 @@ DeviceTreeModel::DeviceTreeModel(vgmtk::SettingsManager& settings_manager,
     if (changed.empty()) return;
     std::swap(self->playing_devices_, now_playing);
 
-    const QVector<int> roles({PlayingDeviceRole});
+    static const QVector<int> roles({PlayingDeviceRole});
 
     int changing_dev = -1;
     for (const auto& a : changed) {
@@ -256,7 +257,6 @@ void DeviceTreeModel::data_changed_helper(const QModelIndex& p, const QVector<in
   }
 }
 
-// NOLINTNEXTLINE: misc-no-recursion
 static QString instance_row_display(const std::vector<PlayingDevice>& pd, const NodeLocator& node) {
   const auto end = pd.end();
   const PlayingDevice key{.dev_idx = node.dev_idx(), .instance = node.row()};
@@ -274,13 +274,6 @@ QVariant DeviceTreeModel::data(const QModelIndex& index, int role) const {
   const NodeLocator node{index};
   const int row = index.row();
   const vgmtk::DeviceConfig& dev_info = info_list_[node.dev_idx()];
-
-  if (index.column() == 1) {
-    if (role == Qt::DisplayRole && node.level() == NodeLocator::NodeLevel::device) {
-      return dev_info.core_name();
-    }
-    return {};
-  }
 
   switch (role) {
     case Qt::DisplayRole: {
@@ -380,13 +373,12 @@ Qt::ItemFlags DeviceTreeModel::flags(const QModelIndex& index) const {
 }
 
 QVariant DeviceTreeModel::headerData(int section, Qt::Orientation orientation, int role) const {
-  static const std::array<const QString, 2> labels = {tr("Name"), tr("Core")};
-  if (orientation == Qt::Horizontal && role == Qt::DisplayRole && section >= 0 &&
-      static_cast<size_t>(section) < labels.size())
-    return labels[section];
-
+  if (orientation == Qt::Horizontal && role == Qt::DisplayRole && section >= 0 && section < 1)
+    return tr("Name");
   return {};
 }
+
+int DeviceTreeModel::dev_idx(const QModelIndex& index) { return NodeLocator(index).dev_idx(); }
 
 bool DeviceTreeFiltered::filterAcceptsRow(int source_row, const QModelIndex& source_parent) const {
   auto* source = sourceModel();

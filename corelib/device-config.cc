@@ -1,3 +1,5 @@
+#include "device-config.h"
+
 #include <libvgm/emu/EmuCores.h>
 #include <libvgm/emu/SoundDevs.h>
 #include <libvgm/emu/cores/2612intf.h>
@@ -9,8 +11,6 @@
 #include <libvgm/emu/cores/scsp.h>
 
 #include <libvgm/player/playerbase.hpp>
-
-#include "device-config.h"
 
 using namespace vgmtk;
 
@@ -58,7 +58,7 @@ constexpr Cr mikey_cs[]{{FCC_LAOO}};
 constexpr Cr ym2151_cs[]{{FCC_MAME}, {FCC_NUKE, "Nuked OPM"}};
 
 constexpr std::array<OnOffOption, 3> ym2612_chip_type_opts{
-    {{.label = "YM2612", .doc = "Emulate original YM2612", .value = OPT_YM2612_TYPE_OPN2},
+    {{.label = "YM2612", .doc = "Emulate original YM2612.", .value = OPT_YM2612_TYPE_OPN2},
      {.label = "YM3438 ASIC", .doc = "Emulate ASIC YM3438.", .value = OPT_YM2612_TYPE_OPN2C_ASIC},
      {.label = "YM3438 Discrete",
       .doc = "Emulate Discrete YM3438.",
@@ -227,7 +227,6 @@ static_assert(lib_devices_p[index_AY8910].devid == DEVID_AY8910, "index_AY8910 i
 const std::size_t vgmtk::num_devices = std::size(lib_devices_p);
 const DeviceConfigList vgmtk::lib_devices(lib_devices_p, num_devices);
 
-
 const char* vgmtk::core_name(uint32_t core_id) {
   switch (core_id) {
     case FCC_MAME:
@@ -238,6 +237,8 @@ const char* vgmtk::core_name(uint32_t core_id) {
       return "EMU2413/EMU2149";
     case FCC_GENS:
       return "Gens";
+    case FCC_GPGX:
+      return "GPGX";
     case FCC_ADLE:
       return "AdLibEmu";
     case FCC_OMSX:
@@ -274,22 +275,19 @@ const char* vgmtk::accurate_chip_name(const PLR_DEV_INFO& info) {
       uint8_t psg_flags = (flags >> 24) & 0x7F;
       uint16_t psg_feedback = (flags & 0xFFFF);
       switch (shift_reg_width) {
-        case 0x0F:
-          if (psg_flags & 0x08)
-            return "SN94624";
-          else
-            return "SN76489";
+        case 0x0F: {
+          if (psg_flags & 0x08) return "SN94624";
+          return "SN76489";
+        }
         case 0x10: {
-          if (psg_feedback == 0x0009)
-            return "SEGA PSG";
-          else if (psg_feedback == 0x0022)
-            return "NCR7496";
+          if (psg_feedback == 0x0009) return "SEGA PSG";
+          if (psg_feedback == 0x0022) return "NCR7496";
         } break;
-        case 0x11:
-          if (psg_flags & 0x08)
-            return "SN76494";
-          else
-            return "SN76489A";  // SN76489A/SN76496
+        case 0x11: {
+          if (psg_flags & 0x08) return "SN76494";
+          return "SN76489A";
+        }
+          // SN76489A/SN76496
         default:
           break;
       }

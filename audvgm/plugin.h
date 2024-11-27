@@ -4,8 +4,8 @@
 #include <libaudcore/i18n.h>
 #include <libaudcore/plugin.h>
 
+#include "../corelib/playback-status.h"
 #include "../corelib/settings-manager.h"
-#include "config.h"
 
 namespace vgmtk {
 

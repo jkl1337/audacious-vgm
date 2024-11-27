@@ -21,7 +21,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported)
 if (ipo_supported)
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 endif ()
 
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)

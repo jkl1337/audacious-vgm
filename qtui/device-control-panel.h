@@ -2,7 +2,6 @@
 #define VGMTK_DEVICE_CONTROL_PANEL_H
 
 #include <QtWidgets/QWidget>
-#include <memory>
 
 namespace vgmtk {
 class PlaybackStatus;
@@ -13,10 +12,9 @@ class DeviceControlPanelPrivate;
 
 class DeviceControlPanel : public QWidget {
   Q_OBJECT
-  friend class DeviceControlPanelPrivate;
   std::unique_ptr<DeviceControlPanelPrivate> const d_ptr;
 
-  Q_DECLARE_PRIVATE(DeviceControlPanel);
+  Q_DECLARE_PRIVATE(DeviceControlPanel)
 
  public:
   DeviceControlPanel(vgmtk::PlaybackStatus &playback_status,

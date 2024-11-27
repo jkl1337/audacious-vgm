@@ -4,7 +4,6 @@
 #include <array>
 #include <bitset>
 #include <cstdint>
-#include <mutex>
 #include <vector>
 
 #include "device-config.h"
@@ -13,8 +12,8 @@
 namespace vgmtk {
 
 struct PlayerSettings {
-  typedef std::bitset<max_linked> DisableMask;
-  typedef std::bitset<max_all_channels> ChannelMask;
+  using DisableMask = std::bitset<max_linked>;
+  using ChannelMask = std::bitset<max_all_channels>;
 
   struct Chip {
     DisableMask disable = 0;
@@ -39,35 +38,15 @@ struct PlayerSettings {
   DeviceInfoRange<std::span<Device>> devices_with_meta() {
     return DeviceInfoRange(std::span(devices));
   }
+  DeviceInfoRange<std::span<const Device>> devices_with_meta() const {
+    return DeviceInfoRange(std::span(devices));
+  }
+
   const Chip &chip(const InstanceId &i) const { return devices[i.dev_idx].chips[i.instance]; }
   const Device &device(const InstanceId &i) const { return devices[i.dev_idx]; }
+  const Device &device(int dev_idx) const { return devices[dev_idx]; }
 };
 
-class PlaybackStatus {
- public:
-  typedef void (*NotifyFunc)(const PlaybackStatus &, void *);
-
-  ~PlaybackStatus();
-
-  void set_device_info(std::vector<PLR_DEV_INFO> dev_info_list);
-  std::vector<PLR_DEV_INFO> get_device_info() const;
-
-  void subscribe(NotifyFunc func, void *ctx = nullptr);
-  void unsubscribe(NotifyFunc func, void *ctx = nullptr);
-
- private:
-  mutable std::mutex dev_info_lock_;
-  std::vector<PLR_DEV_INFO> dev_info_list_;
-
-  static void hook_cb(void *, void *);
-  void call_hooks();
-  struct HookInfo {
-    NotifyFunc func;
-    void *ctx;
-  };
-  std::mutex hook_lock_;
-  std::vector<HookInfo> hooks_;
-};
 }  // namespace vgmtk
 
 #endif  // AUDACIOUS_VGM_LIBVGM_INT_H
