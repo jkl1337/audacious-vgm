@@ -14,6 +14,8 @@ namespace {
 constexpr unsigned width_to_mask(unsigned width) { return (1 << width) - 1; }
 
 class NodeLocator {
+  class NodeInternal;
+
  public:
   enum class NodeLevel : uint8_t { root = 0, device, instance, linked };
 
@@ -25,39 +27,6 @@ class NodeLocator {
     return l = (l == NodeLevel::root) ? l : l = static_cast<NodeLevel>(static_cast<uint8_t>(l) - 1);
   }
 
- private:
-  class NodeInternal {
-    uint_fast16_t loc_;
-
-    static constexpr unsigned dev_idx_bit_pos = 0, dev_idx_bit_width = 9,
-                              instance_bit_pos = dev_idx_bit_width, instance_bit_width = 5,
-                              level_bit_pos = instance_bit_pos + instance_bit_width,
-                              level_bit_width = 2;
-    static_assert(dev_idx_bit_width + instance_bit_width + level_bit_width <=
-                      std::numeric_limits<decltype(loc_)>::digits,
-                  "locator bitfield too wide");
-
-    static constexpr unsigned level_bit_mask = width_to_mask(level_bit_width),
-                              dev_idx_bit_mask = width_to_mask(dev_idx_bit_width),
-                              instance_bit_mask = width_to_mask(instance_bit_width);
-
-   public:
-    explicit constexpr NodeInternal(uintptr_t v = 0) : loc_(v) {}
-    constexpr NodeInternal(NodeLevel level, int dev_idx, int instance)
-        : loc_(((static_cast<uint16_t>(level) & level_bit_mask) << level_bit_pos) |
-               ((dev_idx & dev_idx_bit_mask) << dev_idx_bit_pos) |
-               ((instance & instance_bit_mask) << instance_bit_pos)) {}
-
-    constexpr operator uintptr_t() const { return loc_; }
-
-    constexpr NodeLevel level() const {
-      return static_cast<NodeLevel>((loc_ >> level_bit_pos) & level_bit_mask);
-    }
-    constexpr int instance() const { return (loc_ >> instance_bit_pos) & instance_bit_mask; }
-    constexpr int dev_idx() const { return (loc_ >> dev_idx_bit_pos) & dev_idx_bit_mask; }
-  };
-
- public:
   constexpr NodeLocator(int row, NodeInternal v) : row_(row), v_(v) {}
   explicit constexpr NodeLocator(const QModelIndex& mi)
       : row_(mi.isValid() ? mi.row() : 0), v_(mi.isValid() ? mi.internalId() : 0) {}
@@ -105,6 +74,37 @@ class NodeLocator {
   };
 
  private:
+  class NodeInternal {
+    uint_fast16_t loc_;
+
+    static constexpr unsigned dev_idx_bit_pos = 0, dev_idx_bit_width = 9,
+                              instance_bit_pos = dev_idx_bit_width, instance_bit_width = 5,
+                              level_bit_pos = instance_bit_pos + instance_bit_width,
+                              level_bit_width = 2;
+    static_assert(dev_idx_bit_width + instance_bit_width + level_bit_width <=
+                      std::numeric_limits<decltype(loc_)>::digits,
+                  "locator bitfield too wide");
+
+    static constexpr unsigned level_bit_mask = width_to_mask(level_bit_width),
+                              dev_idx_bit_mask = width_to_mask(dev_idx_bit_width),
+                              instance_bit_mask = width_to_mask(instance_bit_width);
+
+   public:
+    explicit constexpr NodeInternal(uintptr_t v = 0) : loc_(v) {}
+    constexpr NodeInternal(NodeLevel level, int dev_idx, int instance)
+        : loc_(((static_cast<uint16_t>(level) & level_bit_mask) << level_bit_pos) |
+               ((dev_idx & dev_idx_bit_mask) << dev_idx_bit_pos) |
+               ((instance & instance_bit_mask) << instance_bit_pos)) {}
+
+    constexpr operator uintptr_t() const { return loc_; }
+
+    constexpr NodeLevel level() const {
+      return static_cast<NodeLevel>((loc_ >> level_bit_pos) & level_bit_mask);
+    }
+    constexpr int instance() const { return (loc_ >> instance_bit_pos) & instance_bit_mask; }
+    constexpr int dev_idx() const { return (loc_ >> dev_idx_bit_pos) & dev_idx_bit_mask; }
+  };
+
   int row_ = 0;
   NodeInternal v_;
 };

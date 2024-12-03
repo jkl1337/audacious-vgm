@@ -11,6 +11,8 @@ namespace {
 constexpr unsigned width_to_mask(unsigned width) { return (1 << width) - 1; }
 
 class NodeLocator {
+  class NodeInternal;
+
  public:
   enum class NodeLevel : uint8_t { root = 0, device, channel };
 
@@ -21,6 +23,26 @@ class NodeLocator {
   friend constexpr NodeLevel &operator--(NodeLevel &l) {
     return l = (l == NodeLevel::root) ? l : l = static_cast<NodeLevel>(static_cast<uint8_t>(l) - 1);
   }
+
+  constexpr NodeLocator(int row, NodeInternal v) : row_(row), v_(v) {}
+  explicit constexpr NodeLocator(const QModelIndex &mi)
+      : row_(mi.isValid() ? mi.row() : 0), v_(mi.isValid() ? mi.internalId() : 0) {}
+
+  constexpr int ctx() const { return v_.ctx(); }
+  constexpr NodeLevel level() const { return v_.level(); }
+  constexpr int row() const { return row_; }
+  constexpr uintptr_t internal() const { return v_; }
+  constexpr int top_idx() const { return level() == NodeLevel::device ? row_ : ctx(); }
+
+  NodeLocator child(int row) const {
+    auto l = level();
+    return {row, {++l, row_}};
+  }
+
+  NodeLocator parent() const {
+    auto l = level();
+    return {ctx(), {--l, 0}};
+  };
 
  private:
   class NodeInternal {
@@ -47,28 +69,6 @@ class NodeLocator {
     constexpr int ctx() const { return (loc_ >> ctx_bit_start) & ctx_bit_mask; }
   };
 
- public:
-  constexpr NodeLocator(int row, NodeInternal v) : row_(row), v_(v) {}
-  explicit constexpr NodeLocator(const QModelIndex &mi)
-      : row_(mi.isValid() ? mi.row() : 0), v_(mi.isValid() ? mi.internalId() : 0) {}
-
-  constexpr int ctx() const { return v_.ctx(); }
-  constexpr NodeLevel level() const { return v_.level(); }
-  constexpr int row() const { return row_; }
-  constexpr uintptr_t internal() const { return v_; }
-  constexpr int top_idx() const { return level() == NodeLevel::device ? row_ : ctx(); }
-
-  NodeLocator child(int row) const {
-    auto l = level();
-    return {row, {++l, row_}};
-  }
-
-  NodeLocator parent() const {
-    auto l = level();
-    return {ctx(), {--l, 0}};
-  };
-
- private:
   int row_ = 0;
   NodeInternal v_;
 };
@@ -172,7 +172,7 @@ bool ChannelTreeModel::setData(const QModelIndex &index, const QVariant &value, 
                           : writer.set_solo(active.dev_idx, active.instance, state, mask);
     if (!changed) return true;
 
-    const QVector<int> roles({Qt::CheckStateRole});
+    static const QVector<int> roles({Qt::CheckStateRole});
     if (node.level() == NodeLocator::NodeLevel::channel) {
       dataChanged(index, index, roles);
       auto p = index.parent().siblingAtColumn(column);
