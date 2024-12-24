@@ -1,9 +1,11 @@
 #ifndef VGM_DEV_META_H_
 #define VGM_DEV_META_H_
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <ranges>
 #include <span>
 #include <string_view>

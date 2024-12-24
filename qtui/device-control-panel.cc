@@ -113,7 +113,7 @@ DeviceControlPanelPrivate::DeviceControlPanelPrivate(DeviceControlPanel *q,
   // filter_model->setSourceModel(model);
 
   device_tree.setSortingEnabled(false);
-  device_tree.setMinimumHeight(600);
+  device_tree.setMinimumHeight(400);
   device_tree.setModel(&device_tree_model);
   // device_tree.expandRecursively(QModelIndex(), 1);
   device_tree.setUniformRowHeights(true);
@@ -125,7 +125,7 @@ DeviceControlPanelPrivate::DeviceControlPanelPrivate(DeviceControlPanel *q,
   channel_tree.setItemDelegateForColumn(3, new SliderDelegate(&channel_tree));
 
   hbox.addWidget(&channel_tree, 1);
-  channel_tree.setMinimumWidth(300);
+  channel_tree.setMinimumWidth(400);
   channel_tree.setModel(&channel_tree_model);
 
   // NOLINTNEXTLINE(*-unused-return-value)
@@ -156,7 +156,6 @@ DeviceControlPanelPrivate::DeviceControlPanelPrivate(DeviceControlPanel *q,
       settings_manager.writer().set_core(i, core);
     });
     df->connect(df, &DeviceFlagsWidget::flags_edited, q, [&settings_manager, i](uint32_t flags) {
-      printf("flags_edited: %08X\n", flags);
       settings_manager.writer().set_core_opts(i, UINT32_MAX, flags);
     });
     ++i;

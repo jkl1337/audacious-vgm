@@ -3,11 +3,13 @@
 #include <libvgm/emu/EmuCores.h>
 #include <libvgm/emu/SoundDevs.h>
 #include <libvgm/emu/cores/2612intf.h>
+#include <libvgm/emu/cores/ayintf.h>
 #include <libvgm/emu/cores/c352.h>
 #include <libvgm/emu/cores/gb.h>
 #include <libvgm/emu/cores/iremga20.h>
 #include <libvgm/emu/cores/nesintf.h>
 #include <libvgm/emu/cores/okim6258.h>
+#include <libvgm/emu/cores/qsoundintf.h>
 #include <libvgm/emu/cores/scsp.h>
 
 #include <libvgm/player/playerbase.hpp>
@@ -77,6 +79,10 @@ constexpr OptionSpec ym2612_opts[]{
     {"DAC highpass", "Enable DAC highpass filter.", OPT_YM2612_DAC_HIGHPASS, FCC_GENS},
     {"SSG-EG", "Enable (broken) SSG-EG emulation.", OPT_YM2612_SSGEG, FCC_GENS}};
 
+constexpr OptionSpec ay8910_opts[]{
+    {"3-ch PCM detection", "Enable 3-channel PCM detection and disable per-channel panning.", OPT_AY8910_PCM3CH_DETECT},
+};
+
 constexpr OptionSpec gb_opts[]{
     {"Boost Wave Channel", "Boost volume of wave channel by 6dB.", OPT_GB_DMG_BOOST_WAVECH},
     {"Disable WaveRAM corruption",
@@ -93,12 +99,12 @@ constexpr OptionSpec nes_opts[]{
      FCC_NSFP},
     {"Non-linear Mixer", nullptr, OPT_NES_NONLINEAR_MIXER, FCC_NSFP},
     {"Phrase Refresh", nullptr, OPT_NES_PHASE_REFRESH, FCC_NSFP},
-    {"Duty Swap", "Swap 25:75 and 50:50 duty cycles (behavior of some Famiclones)",
+    {"Duty Swap", "Swap 25:75 and 50:50 duty cycles (behavior of some Famiclones).",
      OPT_NES_DUTY_SWAP, FCC_NSFP},
     {"Enable $4011", "Enable register 4011 writes", OPT_NES_ENABLE_4011, FCC_NSFP},
     {"Enable PNoise",
      "Enable \"loop noise\" (disable for early Famicon console + Arcade "
-     "boards)",
+     "boards).",
      OPT_NES_ENABLE_PNOISE, FCC_NSFP},
     {"DPCM Anti Click", "Nullify register 4011 writes, but preserve nonlinearity",
      OPT_NES_DPCM_ANTI_CLICK, FCC_NSFP},
@@ -117,11 +123,16 @@ constexpr OptionSpec nes_opts[]{
 constexpr OptionSpec m6258_opts[]{
     {"Force 12-bit", "Enforce 12-bit output precision", OPT_OKIM6258_FORCE_12BIT}};
 
+constexpr OptionSpec qsound_opts[]{
+    {"No Wait", "Don't require waiting after initialization/filter changes", OPT_QSOUND_NOWAIT}};
+
 constexpr OptionSpec scsp_opts[]{{"Bypass DSP",
                                   "skip all DSP calculations (huge speedup, DSP is broken anyway)",
                                   OPT_SCSP_BYPASS_DSP}};
+
 constexpr OptionSpec c352_opts[]{
     {"Disable Rear", "Mute rear speakers regardless of configuration", OPT_C352_MUTE_REAR}};
+
 constexpr OptionSpec ga20_opts[]{
     {"Linear interpolation", "Enable linear interpolation for samples.", OPT_GA20_INTERPOLATE}};
 
@@ -170,7 +181,7 @@ constexpr DeviceConfig lib_devices_p[42]{
     {.devid = DEVID_YMF271, .label = "YMF271", .channels = s12ch_cg, .cores = mame_cs},
     {.devid = DEVID_YMZ280B, .label = "YMZ280B", .channels = s8ch_cg, .cores = mame_cs},
     {.devid = DEVID_32X_PWM, .label = "PWM", .channels = s1ch_cg, .cores = gens_cs},
-    {.devid = DEVID_AY8910, .label = "AY8910", .channels = s3ch_cg, .cores = ay8910_cs},
+    {.devid = DEVID_AY8910, .label = "AY8910", .channels = s3ch_cg, .cores = ay8910_cs, .options = ay8910_opts},
     {.devid = DEVID_GB_DMG,
      .label = "GameBoy DMG",
      .channels = gb_cg,
@@ -196,7 +207,11 @@ constexpr DeviceConfig lib_devices_p[42]{
     {.devid = DEVID_C219, .label = "C219", .channels = s16ch_cg, .cores = mame_cs},
     {.devid = DEVID_K053260, .label = "K053260", .channels = s4ch_cg, .cores = mame_cs},
     {.devid = DEVID_POKEY, .label = "POKEY", .channels = s4ch_cg, .cores = mame_cs},
-    {.devid = DEVID_QSOUND, .label = "QSound", .channels = s16ch_cg, .cores = qsound_cs},
+    {.devid = DEVID_QSOUND,
+     .label = "QSound",
+     .channels = s16ch_cg,
+     .cores = qsound_cs,
+     .options = qsound_opts},
     {.devid = DEVID_SCSP,
      .label = "SCSP",
      .channels = s32ch_cg,
