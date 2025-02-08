@@ -24,17 +24,18 @@ bool Plugin::init() {
   set_defaults();
 
   playback_status_ = new PlaybackStatus;
-  const PlayerSettings ps = PlayerSettings::init_lib_defaults();
+  PlayerSettings ps = PlayerSettings::init_lib_defaults();
+  load_player_settings(ps);
 
   settings_container_ = new SettingsManager(ps);
   global_settings = settings_container_;
 
-   hook_associate(
-       "audvgm init",
-       [](void *, void *) { audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance)); },
-       nullptr);
+  hook_associate(
+      "audvgm init",
+      [](void *, void *) { audqt::plugin_prefs(aud_plugin_by_header(&aud_plugin_instance)); },
+      nullptr);
   event_queue("audvgm init", nullptr);
-   // aud_plugin_menu_add(AudMenuID::Main, vgmtk::vgm_configure, _("VGM Configure..."), nullptr);
+  // aud_plugin_menu_add(AudMenuID::Main, vgmtk::vgm_configure, _("VGM Configure..."), nullptr);
 
   return true;
 }
@@ -117,7 +118,13 @@ constexpr ComboItem chip_sr_mode_items[]{
 };
 #endif
 
+void save_callback() {
+  const auto m = Plugin::global_settings->read();
+  save_player_settings(m.settings());
+}
+
 constexpr PreferencesWidget length_widgets[]{
+    WidgetButton(N_("Save"), {save_callback, nullptr}),
     WidgetLabel(N_("<b>Length</b>")),
     WidgetSpin(N_("Loop Count:"), WidgetInt(VGM_CFGID, cfg::kLoopCount),
                {1, 14400, 1, N_("times")}),
@@ -163,7 +170,7 @@ constexpr PreferencesWidget playback_widgets[]{
 };
 
 constexpr PreferencesWidget general_widgets_columns[]{
-    WidgetBox({.widgets = length_widgets}),
+    WidgetBox({{length_widgets}, false, false}),
     WidgetSeparator(),
     WidgetBox({.widgets = playback_widgets}),
 };

@@ -37,7 +37,7 @@ void TagHandler::get_tags(PlayerBase &player, Tuple &tuple) {
     const char *en;
     const char *jp;
     Tuple::Field field;
-    const char *val;
+    const char *val{};
   };
   auto final_tags =
       std::to_array<MultiTag>({{.en = "TITLE", .jp = "TITLE-JPN", .field = Tuple::Title},

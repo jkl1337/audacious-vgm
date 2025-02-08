@@ -210,27 +210,6 @@ class PlaybackHandler {
   void init_device_options() {
     std::vector<PLR_DEV_OPTS> dev_opts(chips_.size());
 
-    for (size_t i = 0; i < chips_.size(); ++i) {
-      const auto &c = chips_[i];
-      backend_.GetDeviceOptions(PLR_DEV_ID(c.vgm_type, c.instance), dev_opts[i]);
-    }
-
-    {
-      auto writer = settings_manager_.writer();
-      for (size_t i = 0; i < chips_.size(); ++i) {
-        const auto &c = chips_[i];
-        if (c.vgm_type == DEVID_YM2612 || c.vgm_type == DEVID_YMF262 ||
-            c.vgm_type == DEVID_YM2413 || c.vgm_type == DEVID_YM3812 ||
-            c.vgm_type == DEVID_YM2151) {
-          writer.set_core(c.dev_idx, FCC_NUKE);
-          if (c.vgm_type == DEVID_YM2612)
-            writer.set_core_opts(c.dev_idx, OPT_YM2612_TYPE_OPN2C_ASIC | OPT_YM2612_TYPE_OPN2C_DISC,
-                                 OPT_YM2612_TYPE_OPN2C_ASIC);
-        } else if (c.vgm_type == DEVID_SN76496) {
-          writer.set_core(c.dev_idx, FCC_MAXM);
-        }
-      }
-    }
     {
       auto settings_ctx = settings_manager_.read();
       settings_ctx.load_dev_opts(chips_, dev_opts);

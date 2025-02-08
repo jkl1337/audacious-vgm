@@ -66,6 +66,8 @@ class SettingsManager {
    public:
     const PlayerSettings *operator->() const { return &settings_; }
 
+    const PlayerSettings &settings() const { return settings_; }
+
     void load_dev_opts(const std::vector<InstanceId> &devs, std::vector<PLR_DEV_OPTS> &opts) const;
 
     void load_mute_opts(const std::vector<InstanceId> &devs,

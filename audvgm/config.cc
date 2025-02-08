@@ -10,7 +10,9 @@
 
 using namespace vgmtk;
 
-static std::string dev_name_to_key(const char* label) {
+namespace {
+
+std::string dev_name_to_key(const char* label) {
   std::string k(label);
 
   for (auto& c : k) {
@@ -22,64 +24,46 @@ static std::string dev_name_to_key(const char* label) {
   return k;
 }
 
-static std::string make_all_devices_list() {
-  std::string value;
-  value.reserve(lib_devices.size() * 9);
-
-  const char* sep = "";
-  for (const auto& d : lib_devices) {
-    value += sep;
-    value += dev_name_to_key(d.label);
-    sep = ",";
+std::string core_to_str(uint32_t core) {
+  if (core == 0) {
+    return "0";
   }
-  return value;
-}
-
-static std::string make_zeros_list(size_t n) {
-  std::string str = "0,";
-  str.reserve(n * 2);
-
-  std::size_t i = 2;
-  for (; i < n; i *= 2) {
-    str += str;
-  }
-  str.append(str.data(), (n - (i / 2)) * 2);
-  str.pop_back();
+  std::string str;
+  str.push_back((core >> 24) & 0xFF);
+  str.push_back((core >> 16) & 0xFF);
+  str.push_back((core >> 8) & 0xFF);
+  str.push_back(core & 0xFF);
   return str;
 }
 
+uint32_t str_to_core(const char* str) {
+  if (!std::strcmp("0", str)) return 0;
+
+  uint32_t core = 0;
+  for (char c = *str; c; c = *++str) {
+    core = (core << 8) | (c & 0xFF);
+  }
+  return core;
+}
+
+}  // namespace
+
 void vgmtk::set_defaults() {
-  VGMPlayer player;
   const auto settings = PlayerSettings::init_lib_defaults();
 
   for (const auto [dev, dev_info] : settings.devices_with_meta()) {
+    std::string dev_name = dev_name_to_key(dev_info.label);
     std::string opt_val, pan_val;
-    const char* values[] = {"disable", "0",     "mute_0", "0",     "mute_1", "0",
-                            "solo_0",  "0",     "solo_1", "0",     nullptr,  nullptr,
-                            nullptr,   nullptr, nullptr,  nullptr, nullptr};
-    const char** endp = values;
-    while (*endp) endp++;
 
-    if (dev_info.num_cores() > 1) {
-      *endp++ = "core";
-      *endp++ = "0";
-    }
+    aud_config_set_defaults(VGM_CFGID,
+                            (std::array<const char*, 4>{(dev_name + ".core").c_str(), "0"}).data());
 
     if (dev_info.has_options()) {
-      opt_val = n2hexstr(dev.core_opts);
-      *endp++ = "opts";
-      *endp++ = opt_val.c_str();
+      std::string key = dev_name + ".opts";
+      std::string opt_val = n2hexstr(dev.core_opts);
+      aud_config_set_defaults(VGM_CFGID,
+                              (std::array<const char*, 4>{key.c_str(), opt_val.c_str()}).data());
     }
-
-    if (dev_info.has_panning()) {
-      pan_val = make_zeros_list(dev.chips[0].panning.size());
-      *endp++ = "pan";
-      *endp = pan_val.c_str();
-    }
-
-    std::string section("vgm.");
-    section.append(dev_name_to_key(dev_info.label));
-    aud_config_set_defaults(section.c_str(), values);
   }
 
   static constexpr const char* defaults[] = {cfg::kChipSrMode,
@@ -116,4 +100,24 @@ void vgmtk::set_defaults() {
   aud_config_set_defaults(VGM_CFGID, defaults);
 }
 
-void vgmtk::load_player_settings(const PlayerSettings& settings) {}
+void vgmtk::save_player_settings(const PlayerSettings& settings) {
+  for (const auto [dev, dev_info] : settings.devices_with_meta()) {
+    std::string dev_name = dev_name_to_key(dev_info.label);
+    aud_set_str(VGM_CFGID, (dev_name + ".core").c_str(), core_to_str(dev.core).c_str());
+
+    if (dev_info.has_options()) {
+      aud_set_str(VGM_CFGID, (dev_name + ".opts").c_str(), n2hexstr(dev.core_opts).c_str());
+    }
+  }
+}
+
+void vgmtk::load_player_settings(PlayerSettings& settings) {
+  for (const auto [dev, dev_info] : settings.devices_with_meta()) {
+    std::string dev_name = dev_name_to_key(dev_info.label);
+    dev.core = str_to_core(aud_get_str(VGM_CFGID, (dev_name + ".core").c_str()));
+
+    if (dev_info.has_options()) {
+      dev.core_opts = hexstr2n<uint32_t>(aud_get_str(VGM_CFGID, (dev_name + ".opts").c_str()));
+    }
+  }
+}

@@ -24,6 +24,31 @@ std::string n2hexstr(I w) {
   return rc;
 }
 
+template <typename I>
+I hexstr2n(const char* s) {
+  while (s && *s == '0') ++s;
+  if (!s) {
+    return 0;
+  }
+  if (*s == 'x' || *s == 'X') {
+    ++s;
+  }
+  I rc = 0;
+  for (char c = *s; c; c = *++s) {
+    rc <<= 4;
+    if (c >= '0' && c <= '9') {
+      rc |= c - '0';
+    } else if (c >= 'a' && c <= 'f') {
+      rc |= c - 'a' + 10;
+    } else if (c >= 'A' && c <= 'F') {
+      rc |= c - 'A' + 10;
+    } else {
+      break;
+    }
+  }
+  return rc;
+}
+
 }  // namespace vgmtk
 
 #endif  // VGMTK_TAGGING_H
