@@ -5,7 +5,7 @@
 #include <libvgm/emu/cores/2612intf.h>
 #include <libvgm/emu/cores/ayintf.h>
 #include <libvgm/emu/cores/c352.h>
-#include <libvgm/emu/cores/gb.h>
+#include <libvgm/emu/cores/gbintf.h>
 #include <libvgm/emu/cores/iremga20.h>
 #include <libvgm/emu/cores/nesintf.h>
 #include <libvgm/emu/cores/okim6258.h>
@@ -42,6 +42,7 @@ constexpr ChG gb_cg[]{{0, gb_cname}};
 constexpr ChG nes_cg[]{{0, nes_cname}};
 
 constexpr Cr mame_cs[]{{FCC_MAME}};
+constexpr Cr gb_cs[]{{FCC_MAME}, {FCC_SBOY, "SameBoy"}};
 constexpr Cr sn76489_cs[]{{FCC_MAME}, {FCC_MAXM, "Maxim", true}};
 constexpr Cr ym2413_cs[]{{FCC_EMU_, "EMU2413", true}, {FCC_MAME}, {FCC_NUKE, "Nuked OPLL"}};
 constexpr Cr ym2612_cs[]{{FCC_GPGX, "GPGX", false}, {FCC_NUKE, "Nuked OPN2"}, {FCC_GENS, "GENS"}};
@@ -56,8 +57,9 @@ constexpr Cr qsound_cs[]{{FCC_CTR_, "ctr"}, {FCC_MAME}};
 constexpr Cr wswan_cs[]{{0, "in_wsr"}};
 constexpr Cr vboy_cs[]{{FCC_MEDN, "Mednafen"}};
 constexpr Cr saa_cs[]{{FCC_MAME}, {FCC_VBEL, "Valley Bell"}};
-constexpr Cr mikey_cs[]{{FCC_LAOO}};
+constexpr Cr mikey_cs[]{{FCC_LAOO, "laoo"}};
 constexpr Cr ym2151_cs[]{{FCC_MAME}, {FCC_NUKE, "Nuked OPM"}};
+constexpr Cr msm5205_cs[]{{FCC_EITO, "eito"}};
 
 constexpr std::array<OnOffOption, 3> ym2612_chip_type_opts{
     {{.label = "YM2612", .doc = "Emulate original YM2612.", .value = OPT_YM2612_TYPE_OPN2},
@@ -80,15 +82,18 @@ constexpr OptionSpec ym2612_opts[]{
     {"SSG-EG", "Enable (broken) SSG-EG emulation.", OPT_YM2612_SSGEG, FCC_GENS}};
 
 constexpr OptionSpec ay8910_opts[]{
-    {"3-ch PCM detection", "Enable 3-channel PCM detection and disable per-channel panning.", OPT_AY8910_PCM3CH_DETECT},
+    {"3-ch PCM detection", "Enable 3-channel PCM detection and disable per-channel panning.",
+     OPT_AY8910_PCM3CH_DETECT},
 };
 
 constexpr OptionSpec gb_opts[]{
-    {"Boost Wave Channel", "Boost volume of wave channel by 6dB.", OPT_GB_DMG_BOOST_WAVECH},
     {"Disable WaveRAM corruption",
      "Non-GBC models overwrite parts of the WaveRAM when triggered while "
      "reading a sample.",
      OPT_GB_DMG_NO_WAVE_CORRUPT},
+    {"No DC offset", "Invert some channels to remove DC offsets and clicks",
+     OPT_GB_DMG_NO_DC_OFFSET, FCC_SBOY},
+    {"High-pass filter", "Enable High-pass filter", OPT_GB_DMG_HIGHPASS, FCC_SBOY},
     {"Legacy Mode",
      "Simulate behavior of old MAME core. Required for playing older VGM "
      "files optimized with vgm_cmp.",
@@ -121,7 +126,7 @@ constexpr OptionSpec nes_opts[]{
     {"FDS Disable", "Disable FDS", OPT_NES_FDS_DISABLE}};
 
 constexpr OptionSpec m6258_opts[]{
-    {"Force 12-bit", "Enforce 12-bit output precision", OPT_OKIM6258_FORCE_12BIT}};
+    {"Force 12-bit", "Enforce 12-bit output precision", OPT_MSM6258_FORCE_12BIT}};
 
 constexpr OptionSpec qsound_opts[]{
     {"No Wait", "Don't require waiting after initialization/filter changes", OPT_QSOUND_NOWAIT}};
@@ -139,7 +144,7 @@ constexpr OptionSpec ga20_opts[]{
 constexpr int index_AY8910 = 17;
 constexpr int index_YMF262 = 12;
 
-constexpr DeviceConfig lib_devices_p[42]{
+constexpr DeviceConfig lib_devices_p[43]{
     {.devid = DEVID_SN76496, .label = "SN76496", .channels = sn76489_cg, .cores = sn76489_cs},
     {.devid = DEVID_YM2413, .label = "YM2413", .channels = ym2413_cg, .cores = ym2413_cs},
     {.devid = DEVID_YM2612,
@@ -181,11 +186,15 @@ constexpr DeviceConfig lib_devices_p[42]{
     {.devid = DEVID_YMF271, .label = "YMF271", .channels = s12ch_cg, .cores = mame_cs},
     {.devid = DEVID_YMZ280B, .label = "YMZ280B", .channels = s8ch_cg, .cores = mame_cs},
     {.devid = DEVID_32X_PWM, .label = "PWM", .channels = s1ch_cg, .cores = gens_cs},
-    {.devid = DEVID_AY8910, .label = "AY8910", .channels = s3ch_cg, .cores = ay8910_cs, .options = ay8910_opts},
+    {.devid = DEVID_AY8910,
+     .label = "AY8910",
+     .channels = s3ch_cg,
+     .cores = ay8910_cs,
+     .options = ay8910_opts},
     {.devid = DEVID_GB_DMG,
      .label = "GameBoy DMG",
      .channels = gb_cg,
-     .cores = mame_cs,
+     .cores = gb_cs,
      .options = gb_opts},
     {.devid = DEVID_NES_APU,
      .label = "NES APU",
@@ -194,12 +203,12 @@ constexpr DeviceConfig lib_devices_p[42]{
      .options = nes_opts},
     {.devid = DEVID_YMW258, .label = "YMW258", .channels = s28ch_cg, .cores = mame_cs},
     {.devid = DEVID_uPD7759, .label = "uPD7759", .channels = s1ch_cg, .cores = mame_cs},
-    {.devid = DEVID_OKIM6258,
+    {.devid = DEVID_MSM6258,
      .label = "MSM6258",
      .channels = s1ch_cg,
      .cores = mame_cs,
      .options = m6258_opts},
-    {.devid = DEVID_OKIM6295, .label = "MSM6295", .channels = s4ch_cg, .cores = mame_cs},
+    {.devid = DEVID_MSM6295, .label = "MSM6295", .channels = s4ch_cg, .cores = mame_cs},
     {.devid = DEVID_K051649, .label = "K051649", .channels = s5ch_cg, .cores = mame_cs},
     {.devid = DEVID_K054539, .label = "K054539", .channels = s8ch_cg, .cores = mame_cs},
     {.devid = DEVID_C6280, .label = "HuC6280", .channels = s6ch_cg, .cores = c6280_cs},
@@ -233,7 +242,8 @@ constexpr DeviceConfig lib_devices_p[42]{
      .channels = s4ch_cg,
      .cores = mame_cs,
      .options = ga20_opts},
-    {.devid = DEVID_MIKEY, .label = "MIKEY", .channels = s4ch_cg, .cores = mikey_cs}};
+    {.devid = DEVID_MIKEY, .label = "MIKEY", .channels = s4ch_cg, .cores = mikey_cs},
+    {.devid = DEVID_MSM5205, .label = "MSM5205", .channels = s1ch_cg, .cores = msm5205_cs}};
 
 static_assert(lib_devices_p[index_YMF262].devid == DEVID_YMF262, "index_YMF262 is incorrect.");
 static_assert(lib_devices_p[index_AY8910].devid == DEVID_AY8910, "index_AY8910 is incorrect.");
@@ -273,6 +283,12 @@ const char* vgmtk::core_name(uint32_t core_id) {
       return "ctr";
     case FCC_LAOO:
       return "laoo";
+    case FCC_RN22:
+      return "Mao757";
+    case FCC_EITO:
+      return "eito";
+    case FCC_SBOY:
+      return "SameBoy";
     default:
       return "Invalid";
   }
